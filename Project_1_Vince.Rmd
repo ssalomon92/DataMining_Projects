@@ -10,19 +10,23 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 library('knitr')
+library('lemon')
+library('MASS')
+library('tweedie')
 library('kableExtra')
 library('modeest')
 library('ggplot2')
 library('dplyr')
 library('plyr')
 library('tidyr')
+
 ```
 
 ### 1. Busines Understanding
 
-Having a thorough understanding about claims, medication, days spent in the hospital, and readmission rates is extremely benefitial for hospital, healthcare providers, and patients. With comprehensive knowledge of the aforementioned information, health care providers can develop new care plans and strategies to reach patients before emergencies occur; thus, reducing unnessary hospitalizations. This in turn will increase the health of patients while decreasing the cost of care. 
-
 * Why is it important to know about claims, medication, days spent in the hospital, and readmission rates? Who is interested in this information? What decisions can be informed using such data?[10 Point]
+
+Having a thorough understanding about claims, medication, days spent in the hospital, and readmission rates is extremely benefitial for hospital, healthcare providers, and patients. With comprehensive knowledge of the aforementioned information, health care providers can develop new care plans and strategies to reach patients before emergencies occur; thus, reducing unnessary hospitalizations. This in turn will increase the health of patients while decreasing the cost of care.
 
 The reason for this project....
 
@@ -171,14 +175,87 @@ The table above shows the max variable, max percent, min variable, and min perce
 
 * Visualize the most important attributes appropriately. Provide an interpretation for each graph. Explain for each attribute type why you chose the visualization. [10 points]
 ```{r}
+# create main df
 # change column name
 df.DayInHospital_Y2$MemberID <- df.DayInHospital_Y2$memberid
 # remove column
 df.DayInHospital_Y2$memberid <- NULL
 # merge two of three data frames
 df.main <- merge(df.DayInHospital_Y2,df.Members_Y1,by='MemberID')
-df.main <- merge(df.Claims_Y1,df.main,by='MemberID',all.x=TRUE)
+df<- merge(df.Claims_Y1,df.main,by='MemberID',all.x=TRUE)
 ```
+
+```{r}
+# specialty visualization
+ggplot(data=df, aes(x=reorder(df$specialty,df$specialty,
+                     function(x)-length(x)))) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(y='Count', x='Specialty' , title='Specialty Breakdown')  
+```
+
+#### Discussion
+The bar chart above shows the breakdown of generalized specialty. This variable has great room for improvment. The categories do not appear to be consistent related to the level of specialty they show. The higher categories to the left are not specific, and I believe their broadness is the reason why their count is higher. It is possible that this could be systemic allocation, but I think if possible there would be alot value in digging deeper for the broader categories. Currently the possibilty of overlap will make this variable less imformative.
+
+```{r}
+ggplot(data=df, aes(x=reorder(df$placesvc,df$placesvc,
+                     function(x)-length(x)))) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(y='Count', x='Place of Service' , title='Place of Service')  
+
+```
+
+#### Discussion
+The place of service is similar to the specialty variable. The barplot above shows the breakdown. When we comparing office to not office there could potentially be power in this variable, but our best guess is that beyound that this variable will not be useful. Office is very broad compared to the other variables. If trimming 6 variables was advantages I would consider changing this variable to Office or Not Office.
+
+
+
+
+```{r, echo=FALSE,results='hide',fig.keep='all',message=FALSE,error=FALSE}
+# comment for distr. overlay
+# the_tweed <- function(x){dtweedie(x, mu=mean(df$paydelay), phi=sd(df$paydelay)/3, power=1.1) *length(df$paydelay)*5}
+ggplot(data=df, aes(x=paydelay)) +
+  geom_histogram(binwidth=5) +
+  labs(y='Count', x='Pay Delay' , title='Pay Delay Distribution') 
+```
+
+
+
+#### Discussion
+The pay delay distribtuion is a zero inflated outcome. This is in part due to our assumption that missing values represent people who paid on time. It should be noted that the mean pay delay given a pay delay appears to be 30 days. This could be due to a 30 day  notice. This could be useful for hospitals. What if a simple reminder at 15 months shifted the disrtibution left. This could help hospitals understand if their customers are forgetful or are deliberlately waiting a month to pay.
+
+```{r}
+ggplot(data=df, aes(x=LengthOfStay)) +
+  geom_bar() +
+  labs(y='Count', x='Length of Stay' , title='Length of Stay Breakdown') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+#### Discussion
+The breakdown for length of shows a clear data quality issue. This is consistent with our breakdwon of the Claims_Y1 dataset showing ~95% of the length of stay variable is missing. Hopefully the recording of a variable for this category has significance. If we wanted to trim variables we could change this category to missing, 1 day, and greater than 1 day.
+
+```{r}
+ggplot(data=df, aes(x=reorder(df$dsfs,df$dsfs,
+                     function(x)-length(x)))) +
+  geom_bar() +
+  labs(y='Count', x='Days Since First Claim' , title='Days Since First Claim Breakdown') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+#### Discussion
+This breakdown appears to hav good data quality, but I am curious way there is not a category for days since first claim of >12 months. Does a claim guarentee you will have another claim wihtin a year? The breakdown shows that after the first claim you have a higher chance to return. 
+```{r}
+# plot for primary condition variable
+ggplot(data=df, aes(x=reorder(df$PrimaryConditionGroup, df$PrimaryConditionGroup,
+                     function(x)-length(x)))) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size=7)) +
+  labs(y='Count', x='Pirmary Condition Group' , title='Primary Condition Group Breakdown')  
+```
+
+#### Discussion
+The primary condition group does not appear to show anything extremely interesting other than some groups are more popular than others.
 
 * Explore relationships between attributes: Look a the attributes and then use cross-tabulation, correlation, group-wize averages, etc. as appropriate. [10 points]
 ```{r}
@@ -189,6 +266,7 @@ df.main <- merge(df.Claims_Y1,df.main,by='MemberID',all.x=TRUE)
 #### Discussion
 The datasets were merged on member id. During the merge...
 ```{r}
-
+length(unique(df.Members_Y1$MemberID))
+length(unique(df.Claims_Y1$MemberID))
 ```
 
