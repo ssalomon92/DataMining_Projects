@@ -28,7 +28,7 @@ The reason for this project....
 
 ```{r echo=FALSE}
 # Set working directory for 
-setwd('C:/Users/Sebastian/Documents/EMIS_7331/hospital')
+setwd('../hospital')
 ## read in all the data
 df.Claims_Y1 <- read.csv('Claims_Y1.csv')
 df.Members_Y1 <- read.csv('Members_Y1.csv')
