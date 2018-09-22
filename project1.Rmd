@@ -1,0 +1,194 @@
+---
+output:
+  html_document: default
+  word_document: default
+---
+
+## Project 1
+### Group Members: Vince Miller & Sebastian Salomon
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library('knitr')
+library('kableExtra')
+library('modeest')
+library('ggplot2')
+library('dplyr')
+library('plyr')
+library('tidyr')
+```
+
+### 1. Busines Understanding
+
+Having a thorough understanding about claims, medication, days spent in the hospital, and readmission rates is extremely benefitial for hospital, healthcare providers, and patients. With comprehensive knowledge of the aforementioned information, health care providers can develop new care plans and strategies to reach patients before emergencies occur; thus, reducing unnessary hospitalizations. This in turn will increase the health of patients while decreasing the cost of care. 
+
+* Why is it important to know about claims, medication, days spent in the hospital, and readmission rates? Who is interested in this information? What decisions can be informed using such data?[10 Point]
+
+The reason for this project....
+
+```{r echo=FALSE}
+# Set working directory for 
+setwd('C:/Users/Sebastian/Documents/EMIS_7331/hospital')
+## read in all the data
+df.Claims_Y1 <- read.csv('Claims_Y1.csv')
+df.Members_Y1 <- read.csv('Members_Y1.csv')
+df.DayInHospital_Y2 <- read.csv('DayInHospital_Y2.csv')
+```
+### 2. Data Understanding
+* Describe the type of data (scale, values, etc.) for each attribute in the files Members_Y1.csv, Claims_Y1.csv and DayInHospital_Y2.csv. [10 point]
+
+<center> <h4>Dataset's Attribute Data Types</h4> </center>
+```{r, results='asis'}
+# set options for the table
+options(knitr.kable.NA = '')
+# get the class for each column
+df.datatypeM <- data.frame(sapply(df.Members_Y1, class))
+colnames(df.datatypeM) <- c('Data Class')
+df.datatypeC <- data.frame(sapply(df.Claims_Y1, class))
+colnames(df.datatypeC) <- c('Data Class')
+df.datatypeD <- data.frame(sapply(df.DayInHospital_Y2, class))
+colnames(df.datatypeD) <- c('Data Class')
+
+# combine dataframes
+df.datatype <- rbind(df.datatypeC,df.datatypeD,df.datatypeM)
+
+# get number levels for members_y1
+df.datatype['sex','# Levels'] <- toString(nlevels(df.Members_Y1$sex))
+df.datatype['AgeAtFirstClaim','# Levels'] <- toString(nlevels(df.Members_Y1$AgeAtFirstClaim))
+# get levels for claims_y1
+df.datatype['Year','# Levels'] <- toString(nlevels(df.Claims_Y1$Year))
+df.datatype['specialty','# Levels'] <- toString(nlevels(df.Claims_Y1$specialty))
+df.datatype['placesvc','# Levels'] <- toString(nlevels(df.Claims_Y1$placesvc))
+df.datatype['LengthOfStay','# Levels'] <- toString(nlevels(df.Claims_Y1$LengthOfStay))
+df.datatype['dsfs','# Levels'] <- toString(nlevels(df.Claims_Y1$dsfs))
+df.datatype['PrimaryConditionGroup','# Levels'] <- toString(nlevels(df.Claims_Y1$PrimaryConditionGroup))
+df.datatype['CharlsonIndex','# Levels'] <- toString(nlevels(df.Claims_Y1$CharlsonIndex))
+
+# get levels for members_y1
+df.datatype['sex','Levels'] <- toString(levels(df.Members_Y1$sex))
+df.datatype['AgeAtFirstClaim','Levels'] <- toString(levels(df.Members_Y1$AgeAtFirstClaim))
+# get levels for claims_y1
+df.datatype['Year','Levels'] <- toString(levels(df.Claims_Y1$Year))
+df.datatype['specialty','Levels'] <- toString(levels(df.Claims_Y1$specialty))
+df.datatype['placesvc','Levels'] <- toString(levels(df.Claims_Y1$placesvc))
+df.datatype['LengthOfStay','Levels'] <- toString(levels(df.Claims_Y1$LengthOfStay))
+df.datatype['dsfs','Levels'] <- toString(levels(df.Claims_Y1$dsfs))
+df.datatype['PrimaryConditionGroup','Levels'] <- toString(levels(df.Claims_Y1$PrimaryConditionGroup))
+df.datatype['CharlsonIndex','Levels'] <- toString(levels(df.Claims_Y1$CharlsonIndex))
+
+#create html table
+kable(df.datatype) %>%    
+  group_rows('Claims_Y1',1,12) %>% 
+  group_rows('DayInHospital_Y2',13,14) %>% 
+  group_rows('Members_Y1',15,17) %>%
+  kable_styling(full_width=T)
+ 
+```
+
+#### Discussion
+The table above shows each variable in their respective dataset. A few variables such as MemberID, ProviderID, vendor, pcp are listed as integer values, but from the data dictionary we know these values should not be considered integers for analysis. These values will be converted to factors. MemberID appears in each dataset, but the column name is slightly different. We will need to remember this if we want to merge. Other integer values paydelay and DaysInHospital represent day counts. These values will be as integers. Lastly, there are many factor variables. Each factor count as well as the factors themselves are listed. A few things to note are year currently has no value considering it is the same for each row, LengthOfStay has missing values, and PrimaryConditionGroup has many factors comparatively. These are our preliminary findings when inspecting the data. I am sure there will be many to come!
+
+* Give simple appropriate statistics (range, mode, mean, median, variance, etc.) for most important attributes in these files and describe what they mean if you find something interesting. [10 points]
+<center> <h4>Summary Statistics for Integer Features</h4> </center>
+```{r}
+# create function for stats requested
+my_stats <- function(x){
+  df <- data.frame(list(range(x)[1],range(x)[2],mean(x),median(x),sd(x)))
+  colnames(df) <- c('Min','Max','Mean','Median','SD')
+  return(df)
+}
+
+# assumption that NA paydelay means paid on time
+df.Claims_Y1$paydelay[is.na(df.Claims_Y1$paydelay)] <- 0
+
+# calc stats
+# for pay delay
+int_stats <- my_stats(df.Claims_Y1$paydelay)
+row.names(int_stats) <- c('Pay Delay')
+# for daysinhospital Y2
+int_stats2 <- my_stats(df.DayInHospital_Y2$DaysInHospital_Y2)
+row.names(int_stats2) <- c('Days In Hospital Year 2')
+# combine int simple stats
+df.int_stats <- rbind(int_stats,int_stats2)
+# output table 
+kable(df.int_stats) %>%
+  kable_styling(full_width=T) %>%
+  group_rows('df.Claims_Y1',1,1) %>%
+  group_rows('df.DayInHospital_Y2',2,2)
+```
+
+#### Discussion
+The table above shows the min, max, mean, median, and standard deviation for the two integer variables found in the datasets. An assumption was made that missing values in the pay delay variable represent pay delay of 0. Inspecting the summary statistics for pay delay do not show much interesting information. The variable appears slightly skewed right. Inspecting the Days in Hospital Year 2 is slighly more interesting. The mean is very low considering the range. The standard deviation is also small. This variable appears that it is concentrated at 0. The summary statistics give some insight to these variables, but we can do better sleuthing with visualizations.
+
+<center> <h4>Most and Least Frequent Observations for Categorical Data</h4> </center>
+```{r, echo=FALSE}
+options(knitr.kable.NA = 'Missing')
+# function for finding highest and lowest count
+most_least <- function(x){
+  x <- count(x)
+  df <- x[which.max(x$freq),]
+  df2 <- x[which.min(x$freq),]
+  cbind(df,df2)
+}
+# subset variables I want from claims
+df.count <- select(df.Claims_Y1, 'specialty', 'placesvc', 'LengthOfStay', 'dsfs', 'PrimaryConditionGroup', 'CharlsonIndex')
+most.least <- lapply(df.count, most_least)
+# combind to dataframe
+df.most.least.claims <- do.call(rbind,data.frame(cbind(most.least))$most.least)
+
+# subset what i want from members
+df.count <- select(df.Members_Y1, 'sex', 'AgeAtFirstClaim')
+most.least <- lapply(df.count, most_least)
+# combind to dataframe
+df.most.least.members <- do.call(rbind,data.frame(cbind(most.least))$most.least)
+# combine
+df <- rbind(df.most.least.claims,df.most.least.members)
+
+# rename
+colnames(df) <- c('Variable (Max)', 'n', 'Variable (Min)', 'n1')
+# fix missing
+# df['LengthOfStay', 'Variable (Max)'] <- 'Missing'
+
+
+#percent yo
+df[1:6,'n'] <- (df[1:6,'n'] / nrow(df.Claims_Y1)) * 100
+df[1:6,'n1'] <- (df[1:6,'n1'] / nrow(df.Claims_Y1)) * 100
+df[7:8,'n'] <- (df[7:8,'n'] / nrow(df.Members_Y1)) * 100
+df[7:8,'n1'] <- (df[7:8,'n1'] / nrow(df.Members_Y1)) * 100
+
+
+# rerename
+colnames(df) <- c('Variable (Max)', 'n', 'Variable (Min)', 'n')
+#create html table
+kable(df) %>%    
+  group_rows('Claims_Y1',1,6) %>% 
+  group_rows('Members_Y1',7,8) %>%
+  kable_styling(full_width=F)
+
+```
+#### Discussion
+The table above shows the max variable, max percent, min variable, and min percent for the count of each categorical variable in the datasets. 
+
+* Visualize the most important attributes appropriately. Provide an interpretation for each graph. Explain for each attribute type why you chose the visualization. [10 points]
+```{r}
+# change column name
+df.DayInHospital_Y2$MemberID <- df.DayInHospital_Y2$memberid
+# remove column
+df.DayInHospital_Y2$memberid <- NULL
+# merge two of three data frames
+df.main <- merge(df.DayInHospital_Y2,df.Members_Y1,by='MemberID')
+df.main <- merge(df.Claims_Y1,df.main,by='MemberID',all.x=TRUE)
+```
+
+* Explore relationships between attributes: Look a the attributes and then use cross-tabulation, correlation, group-wize averages, etc. as appropriate. [10 points]
+```{r}
+
+```
+* Verigy data quality: Are there missing values? Duplicate Data? Outliers? Are those mistakes? How can these be fixed? [10 points]
+
+#### Discussion
+The datasets were merged on member id. During the merge...
+```{r}
+
+```
+
