@@ -4,7 +4,7 @@ output:
   word_document: default
 ---
 
-## Project 1
+# Project 1
 ### Group Members: Vince Miller & Sebastian Salomon
 
 ```{r setup, include=FALSE}
@@ -22,7 +22,7 @@ library('tidyr')
 
 ```
 
-### 1. Busines Understanding
+## 1. Busines Understanding
 
 * Why is it important to know about claims, medication, days spent in the hospital, and readmission rates? Who is interested in this information? What decisions can be informed using such data?[10 Point]
 
@@ -38,7 +38,7 @@ df.Claims_Y1 <- read.csv('Claims_Y1.csv')
 df.Members_Y1 <- read.csv('Members_Y1.csv')
 df.DayInHospital_Y2 <- read.csv('DayInHospital_Y2.csv')
 ```
-### 2. Data Understanding
+## 2. Data Understanding
 * Describe the type of data (scale, values, etc.) for each attribute in the files Members_Y1.csv, Claims_Y1.csv and DayInHospital_Y2.csv. [10 point]
 
 <center> <h4>Dataset's Attribute Data Types</h4> </center>
@@ -174,6 +174,9 @@ kable(df) %>%
 The table above shows the max variable, max percent, min variable, and min percent for the count of each categorical variable in the datasets. 
 
 * Visualize the most important attributes appropriately. Provide an interpretation for each graph. Explain for each attribute type why you chose the visualization. [10 points]
+
+Below is a plot for each variable as they were found in their respective dataset. This sleuthing is necessary to understand each variable allowing an informed aproach for handling missing values, feature selection, and feature engineering.
+
 ```{r}
 # create main df
 # change column name
@@ -184,6 +187,32 @@ df.DayInHospital_Y2$memberid <- NULL
 df.main <- merge(df.DayInHospital_Y2,df.Members_Y1,by='MemberID')
 df<- merge(df.Claims_Y1,df.main,by='MemberID',all.x=TRUE)
 ```
+
+### Integer Variable Visualizations
+
+```{r, echo=FALSE,results='hide',fig.keep='all',message=FALSE,error=FALSE}
+# comment for distr. overlay
+# the_tweed <- function(x){dtweedie(x, mu=mean(df$paydelay), phi=sd(df$paydelay)/3, power=1.1) *length(df$paydelay)*5}
+ggplot(data=df, aes(x=paydelay)) +
+  geom_histogram(binwidth=5) +
+  labs(y='Count', x='Pay Delay' , title='Pay Delay Distribution') 
+```
+
+
+#### Discussion
+The pay delay distribtuion is a zero inflated outcome. This is in part due to our assumption that missing values represent people who paid on time. It should be noted that the mean pay delay given a pay delay appears to be 30 days. This could be due to a 30 day  notice. This could be useful for hospitals. What if a simple reminder at 15 months shifted the disrtibution left. This could help hospitals understand if their customers are forgetful or are deliberlately waiting a month to pay.
+
+```{r}
+ggplot(data=df.DayInHospital_Y2, aes(x=DaysInHospital_Y2)) +
+  geom_histogram(binwidth=3) +
+  labs(y='Count', x='Days in the Hospital Year 2' , title='Days in the Hospital Year 2 Distribution') 
+```
+
+
+#### Discussion
+This variable has alot of concentration at zero. It is odd that there is an uptick at 15. Reading the data dictionary you will find that anything above 15 is top coded to 15.
+
+### Categorical Variable Visualizations
 
 ```{r}
 # specialty visualization
@@ -209,21 +238,19 @@ ggplot(data=df, aes(x=reorder(df$placesvc,df$placesvc,
 #### Discussion
 The place of service is similar to the specialty variable. The barplot above shows the breakdown. When we comparing office to not office there could potentially be power in this variable, but our best guess is that beyound that this variable will not be useful. Office is very broad compared to the other variables. If trimming 6 variables was advantages I would consider changing this variable to Office or Not Office.
 
-
-
-
-```{r, echo=FALSE,results='hide',fig.keep='all',message=FALSE,error=FALSE}
-# comment for distr. overlay
-# the_tweed <- function(x){dtweedie(x, mu=mean(df$paydelay), phi=sd(df$paydelay)/3, power=1.1) *length(df$paydelay)*5}
-ggplot(data=df, aes(x=paydelay)) +
-  geom_histogram(binwidth=5) +
-  labs(y='Count', x='Pay Delay' , title='Pay Delay Distribution') 
+```{r}
+ggplot(data=df.Claims_Y1, aes(x = CharlsonIndex))+
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(y='Count', x='Charlson Index' , title='Charlson Index Breakdown')
 ```
 
-
-
 #### Discussion
-The pay delay distribtuion is a zero inflated outcome. This is in part due to our assumption that missing values represent people who paid on time. It should be noted that the mean pay delay given a pay delay appears to be 30 days. This could be due to a 30 day  notice. This could be useful for hospitals. What if a simple reminder at 15 months shifted the disrtibution left. This could help hospitals understand if their customers are forgetful or are deliberlately waiting a month to pay.
+The Charlson Index is a measure of the particular affect that a disease has on overall illness, grouped by significance, that generalizes additional diagnoses. Scores greater than zero
+are carried forward (for up to a year) in subsequent claims with a comorbidity
+score of zero [1,4]. In lay terms, a higher Charlson Index implies a higher probability of 10 year mortality rate of the particular member.
+
+The Charlson Index distribution shown above has an exponential decay trend. This means that the probability of a particular claim on having a high Charlson Index in this particular hospital is rare.
 
 ```{r}
 ggplot(data=df, aes(x=LengthOfStay)) +
@@ -257,16 +284,49 @@ ggplot(data=df, aes(x=reorder(df$PrimaryConditionGroup, df$PrimaryConditionGroup
 #### Discussion
 The primary condition group does not appear to show anything extremely interesting other than some groups are more popular than others.
 
-* Explore relationships between attributes: Look a the attributes and then use cross-tabulation, correlation, group-wize averages, etc. as appropriate. [10 points]
 ```{r}
-
+# plot for primary condition variable
+ggplot(data=df.Members_Y1, aes(x=reorder(AgeAtFirstClaim, AgeAtFirstClaim,
+                     function(x)-length(x)))) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(y='Count', x='Age at First Claim' , title='Age at First Claim Breakdown') 
 ```
+
+#### Discussion
+The breakdown above shows the age at first claim. The largest group of age at first claim is 70-79 group. There is alot that do not have their first claim until they are over 80. That is great! 20-29 is the group that has the least first claims. What a time to be alive!
+
+```{r}
+ggplot(data=df.Members_Y1, aes(x = sex))+
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(y='Count', x='Gender' , title='Gender Breakdown') 
+```
+
+#### Discussion
+
+The gender breakdown above shows a slightly lopsided breakdown in favor of the females. That means that there were more females than males with a memberID. It is also important to take account the amount of claims made from each individual, and by doing some data mapping we found that females in average made 8.925 claims per individual. In turn males in average filed 7.63 claims per individual. That means that the claims breakdown by males to females is a little more lopsided than the one shown above.
+
+* Explore relationships between attributes: Look a the attributes and then use cross-tabulation, correlation, group-wize averages, etc. as appropriate. [10 points]
+
+Our initial approach is to view relationships between variables that have confirmed high quality above. Visualizing the relationships between the high quality varibles can be insightful for comparing while we attempt to handle fixing data quality issues. Relationships between variables that contain data quality issues can be viewed after they are adjusted in the next section.
+
+
+```{r}
+ggplot(data=df, aes(x=AgeAtFirstClaim, y=CharlsonIndex)) +
+  geom_count() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(y='Age at First Claim', x='Charlson Index' , title='Charlson Index across Age at First Claim')
+```
+
+#### Discussion
+The plot above shows the correlation between age at first claim and charlson index. It appears that they are positiviley correlated. This is possible to determine from the ordinal nature of the categorical variables. The positive correlation is as expected considering the description of charlson index in the data dictionary. While the variables are correlated the correlation does not appear extreme. The age groups below 40 seem more similar to one another when compared to groups greater than 40. I do not think the correlation is reason for concern or a good enough reason to throw out either of the variables.
+
 * Verigy data quality: Are there missing values? Duplicate Data? Outliers? Are those mistakes? How can these be fixed? [10 points]
 
 #### Discussion
 The datasets were merged on member id. During the merge...
 ```{r}
-length(unique(df.Members_Y1$MemberID))
-length(unique(df.Claims_Y1$MemberID))
+sum(sort(unique(df.Members_Y1$MemberID)) == sort(unique(df.Claims_Y1$MemberID)) &  sort(unique(df.Claims_Y1$MemberID)) == sort(unique(df.DayInHospital_Y2$MemberID)))
 ```
-
+## 3. Data Preperation
