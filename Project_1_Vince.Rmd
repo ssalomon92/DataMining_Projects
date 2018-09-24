@@ -453,6 +453,54 @@ ggarrange(n, t, r, s, ncol=2, padding=FALSE)
 ```
 </center>
 
+#### Discussion
+The charts above show interactions between specialty, days since first service, and age at first claim. (not finished)
+
+```{r}
+library(sqldf)
+
+only_1_claim<-
+  sqldf("
+        select df.*, count(MemberID) as count1
+        from df
+        group by MemberID"  )
+
+only_f<-
+  sqldf("
+        select only_1_claim.*
+        from only_1_claim
+        where count1 = 1  ")#and CharlsonIndex != 0")
+
+ggplot(data=only_f, aes(AgeAtFirstClaim,fill=CharlsonIndex)) +
+  geom_bar(position='fill') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(y='Count', x='Age' , title='Age when Claim was made Breakdown')
+  
+```
+
+###Discussion:
+This plot is interesting because in this one we get roughly the age of the individual. The way this
+was done was by manipulating the data in order to get only the individuals that have made one claim,
+therefore the age of their first claim is the same age that they had when they filed that particular
+claim. By looking at the plot we can notice a positive correlation between the Charleson Index and
+the age of the individual. What this means is that if you are getting a young and an old individual
+filing a claim, the older individual is in average more likely to have a higher Charlson Index
+
+```{r}
+ggplot(data=df, aes(CharlsonIndex, paydelay)) +
+  geom_boxplot() + #position='fill') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(y='Pay Delay (days)', x='Charlson Index', title='Box Plots of Pay Delay by Charlson Index')
+```
+
+
+###Discussion:
+This box plot shows us the distribution of each of the 4 different Charlson Index with respect to the
+pay delay. I was orginially expecting to be more delay on the higher indexes, but the graph shows
+each of the medians to be very similar between each other. The distribution also tells us that there
+are more people who pay later than right away since the the upper quartile is bigger than the 1st
+quartile.
+
 * Verigy data quality: Are there missing values? Duplicate Data? Outliers? Are those mistakes? How can these be fixed? [10 points]
 
 #### Discussion
