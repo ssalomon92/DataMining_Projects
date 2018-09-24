@@ -4,22 +4,26 @@ output:
   word_document: default
 ---
 
+
 # Project 1
 ### Group Members: Vince Miller & Sebastian Salomon
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
+library('MASS')
+library('dplyr')
+library('plyr')
 library('knitr')
 library('lemon')
-library('MASS')
 library('tweedie')
 library('kableExtra')
 library('modeest')
 library('ggplot2')
-library('dplyr')
-library('plyr')
 library('tidyr')
-
+library('reshape')
+library('egg')
+library('gridExtra')
+library('cowplot')
 ```
 
 ## 1. Busines Understanding
@@ -227,11 +231,13 @@ ggplot(data=df, aes(x=reorder(df$specialty,df$specialty,
 The bar chart above shows the breakdown of generalized specialty. This variable has great room for improvment. The categories do not appear to be consistent related to the level of specialty they show. The higher categories to the left are not specific, and I believe their broadness is the reason why their count is higher. It is possible that this could be systemic allocation, but I think if possible there would be alot value in digging deeper for the broader categories. Currently the possibilty of overlap will make this variable less imformative.
 
 ```{r}
-ggplot(data=df, aes(x=reorder(df$placesvc,df$placesvc,
+z <- ggplot(data=df, aes(x=reorder(df$placesvc,df$placesvc,
                      function(x)-length(x)))) +
   geom_bar() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(y='Count', x='Place of Service' , title='Place of Service')  
+
+ggdraw(z)
 
 ```
 
@@ -271,7 +277,9 @@ ggplot(data=df, aes(x=reorder(df$dsfs,df$dsfs,
 ```
 
 #### Discussion
-This breakdown appears to hav good data quality, but I am curious way there is not a category for days since first claim of >12 months. Does a claim guarentee you will have another claim wihtin a year? The breakdown shows that after the first claim you have a higher chance to return. 
+This breakdown appears to have good data quality. According to the data dictionary the variable represents days since first claim for the current claim in each year. This variable is not very intuitve, and possibly relates to annual insurance policy premiums. If this variable is highly correlated with another it could be advantageous to choose the more intuitive option.
+
+
 ```{r}
 # plot for primary condition variable
 ggplot(data=df, aes(x=reorder(df$PrimaryConditionGroup, df$PrimaryConditionGroup,
@@ -284,6 +292,7 @@ ggplot(data=df, aes(x=reorder(df$PrimaryConditionGroup, df$PrimaryConditionGroup
 #### Discussion
 The primary condition group does not appear to show anything extremely interesting other than some groups are more popular than others.
 
+
 ```{r}
 # plot for primary condition variable
 ggplot(data=df.Members_Y1, aes(x=reorder(AgeAtFirstClaim, AgeAtFirstClaim,
@@ -293,13 +302,14 @@ ggplot(data=df.Members_Y1, aes(x=reorder(AgeAtFirstClaim, AgeAtFirstClaim,
   labs(y='Count', x='Age at First Claim' , title='Age at First Claim Breakdown') 
 ```
 
+
 #### Discussion
 The breakdown above shows the age at first claim. The largest group of age at first claim is 70-79 group. There is alot that do not have their first claim until they are over 80. That is great! 20-29 is the group that has the least first claims. What a time to be alive!
 
 ```{r}
 ggplot(data=df.Members_Y1, aes(x = sex))+
   geom_bar() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(axis.text.x = element_text(hjust = 1)) +
   labs(y='Count', x='Gender' , title='Gender Breakdown') 
 ```
 
@@ -313,14 +323,135 @@ Our initial approach is to view relationships between variables that have confir
 
 
 ```{r}
-ggplot(data=df, aes(x=AgeAtFirstClaim, y=CharlsonIndex)) +
-  geom_count() +
+# create plot
+ggplot(data=df.Members_Y1, aes(AgeAtFirstClaim,fill=sex)) +
+  geom_bar(position='fill') +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(y='Age at First Claim', x='Charlson Index' , title='Charlson Index across Age at First Claim')
+  labs(y='Count', x='Age at First Claim' , title='Age at First Claim Breakdown') 
+  
 ```
 
 #### Discussion
-The plot above shows the correlation between age at first claim and charlson index. It appears that they are positiviley correlated. This is possible to determine from the ordinal nature of the categorical variables. The positive correlation is as expected considering the description of charlson index in the data dictionary. While the variables are correlated the correlation does not appear extreme. The age groups below 40 seem more similar to one another when compared to groups greater than 40. I do not think the correlation is reason for concern or a good enough reason to throw out either of the variables.
+The plot above shows shows that the distribution of sex across the age at first claim is near the expected value. This helps the assumption that there was randoming sampling as related to age at first claim and sex from the members dataset. If the members data set had very different distribution of sex across age at first claim we could suspect bad sampling methods.
+
+
+```{r}
+# create plot
+ggplot(data=df, aes(CharlsonIndex,fill=sex)) +
+  geom_bar(position='dodge') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(y='Count', x='Charlson Index' , title='Charlson Index for Claims by Sex') 
+```
+
+#### Discussion
+This plot is interesting because while we know there are more females, and we've stated that on average females have more claims per individual we can clearly see that the proportion of males and females in each Charlson Index is not normal. Females appear to claim less severe incidents as reported by the Charlson Index. Investigating the distributions for days spent in the hospital during year 2 for male and female show slightly different distributions. The table below shows that females have a slightly higher mean for days spent in the hospital than males. This is interesting give our knowledge of the severity of their claims. This prior imformation could 
+<center> <h6>Days Spend In the Hospital in Year 2</h6> </center>
+```{r, echo=FALSE}
+# create gender compare variable
+# make means table
+df.gendercompare <- merge(df.Members_Y1,df.DayInHospital_Y2,by='MemberID')
+a <- mean(df.gendercompare[which(df.gendercompare$sex=='F'), "DaysInHospital_Y2"])
+b <- mean(df.gendercompare[which(df.gendercompare$sex=='M'), "DaysInHospital_Y2"])
+means <- data.frame(a,b)
+colnames(means) <- c('Female', 'Male')
+row.names(means) <- 'Mean'
+kable(means) %>%
+  kable_styling(full_width=F)
+```
+
+
+```{r, echo=FALSE}
+z <- ggplot(data=df, aes(x=reorder(df$placesvc,df$placesvc,
+                     function(x)-length(x)))) +
+  geom_bar() +
+  theme(axis.text.x = element_blank(),axis.title.x.bottom=element_blank(),axis.title.x.top=element_blank(), axis.text.y = element_blank(), axis.title.y.left=element_blank()) +
+  labs(y='Count', x='Place of Service')  
+
+
+
+
+a <- ggplot(data=df, aes(x=specialty,y=specialty)) +
+      geom_count() +
+      theme(axis.text.x = element_blank(),axis.text.y=element_text(size=6,angle=45),axis.title.y.left=element_text(size=12),legend.position='none') +
+      labs(y='Specialty', x='Place of Service') 
+     
+
+b <- ggplot(data=df, aes(y=specialty,x=dsfs)) +
+      geom_count() +
+      theme(axis.title.y=element_blank(),axis.title.x.bottom=element_blank(),axis.text.x.bottom=element_blank(),axis.text.y=element_blank(),legend.position='none') +
+      labs(x='dsfs') 
+      
+c <- ggplot(data=df, aes(y=specialty,x=AgeAtFirstClaim)) +
+      geom_count() +
+      scale_y_discrete(position='right') +
+      theme(axis.title.y=element_blank(),axis.text.x=element_blank(),axis.title.x.bottom=element_blank(),axis.text.y.left=element_blank(),axis.text.y.right=element_text(angle=45,size=6),legend.position='none') +
+      labs(x='Age at first claim') 
+
+```
+<center> <h5>Joint Distributions of Categorical Variables</h5> </center>
+<center>
+```{r, echo=FALSE}
+m <- ggplot(data=df, aes(x=reorder(df$dsfs,df$dsfs,
+                     function(x)-length(x)))) +
+  geom_bar() +
+  theme(axis.title.y=element_blank(),axis.title.x.bottom=element_blank(), axis.text.x = element_blank(),axis.text.y=element_blank(),legend.position='none') +
+      labs(x='dsfs') 
+
+
+
+
+n <- ggplot(data=df, aes(x=specialty,y=factor(dsfs,levels=c("0- 1 month"  , "1- 2 months" ,"2- 3 months",  "3- 4 months" , "4- 5 months",  "5- 6 months" ,"6- 7 months" , "7- 8 months"  ,"8- 9 months" , "9-10 months","10-11 months" ,"11-12 months" )))) +
+      geom_count() +
+      theme(axis.title.x.top=element_text(),axis.title.x.bottom=element_blank(),axis.text.x= element_blank(),axis.text.y=element_text(size=6,angle=45),axis.title.y.left=element_text(size=7),legend.position='none') +
+      labs(y='Days Since First Service', x='Place of Service') 
+     
+
+o <- ggplot(data=df, aes(y=specialty,x=dsfs)) +
+      geom_count() +
+      theme(axis.title.y=element_blank(),axis.title.x.bottom=element_blank(), axis.text.x = element_blank(),axis.text.y=element_blank(),legend.position='none') +
+      labs(x='dsfs') 
+      
+p <- ggplot(data=df, aes(y=dsfs,x=AgeAtFirstClaim)) +
+      geom_count() +
+      scale_y_discrete(position='right') +
+      theme(axis.title.y=element_blank(),axis.text.x=element_blank(),axis.title.x.bottom=element_blank(),axis.text.y.left=element_blank(),axis.text.y.right=element_blank(),legend.position='none') +
+      labs(x='Age at first claim') 
+
+#last three
+q <- ggplot(data=df, aes(x=reorder(df$AgeAtFirstClaim,df$AgeAtFirstClaim,
+                     function(x)-length(x)))) +
+  geom_bar() +
+  theme(axis.title.y=element_blank(),axis.title.x.bottom=element_text(size=6), axis.text.x = element_text(size=6,angle=45),axis.text.y=element_blank(),legend.position='none') +
+      labs(x='Age at First Claim') 
+
+
+
+
+r <- ggplot(data=df, aes(x=specialty,y=AgeAtFirstClaim)) +
+      geom_count() +
+      theme(axis.title.x.bottom=element_text(size=6),axis.text.x.bottom=element_text(size=6,angle=45),axis.text.y=element_text(size=6,angle=45),axis.title.y.left=element_text(size=7),legend.position='none') +
+      labs(y='Age At First Claim', x='Specialty') 
+     
+
+s <- ggplot(data=df, aes(y=AgeAtFirstClaim,x=factor(dsfs,levels=c("0- 1 month"  , "1- 2 months" ,"2- 3 months",  "3- 4 months" , "4- 5 months",  "5- 6 months" ,"6- 7 months" , "7- 8 months"  ,"8- 9 months" , "9-10 months","10-11 months" ,"11-12 months" )))) +
+      geom_count() +
+      theme(axis.title.y=element_blank(),axis.title.x.bottom=element_text(size=6), axis.text.x = element_text(size=6,angle=45),axis.text.y=element_blank(),legend.position='none') +
+      labs(x='Days Since First Service') 
+      
+t <- ggplot(data=df, aes(y=dsfs,x=AgeAtFirstClaim)) +
+      geom_blank() +
+      theme(axis.title.y=element_blank(),axis.text.x=element_blank(),axis.title.x.bottom=element_blank(),axis.text.y.left=element_blank(),axis.text.y.right=element_blank(),legend.position='none',axis.ticks=element_blank(),axis.line=element_blank())
+      # geom_count() +
+      # scale_y_discrete(position='right') +
+      # theme(axis.title.y=element_blank(),axis.text.x=element_blank(),axis.title.x.bottom=element_blank(),axis.text.y.left=element_blank(),axis.text.y.right=element_blank(),legend.position='none') +
+      # labs(x='Age at first claim') 
+      # 
+
+   
+
+ggarrange(n, t, r, s, ncol=2, padding=FALSE)
+```
+</center>
 
 * Verigy data quality: Are there missing values? Duplicate Data? Outliers? Are those mistakes? How can these be fixed? [10 points]
 
