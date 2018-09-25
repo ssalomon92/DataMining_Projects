@@ -807,8 +807,182 @@ Joint Distributions of Categorical Variables
 </ul>
 <div id="discussion-18" class="section level4">
 <h4>Discussion</h4>
-<p>The datasets were merged on member id. During the merge…</p>
-<pre><code>## [1] 77289</code></pre>
+<p>When that datasets were first read an analysis of the key values was performed. It was found that df.Members &amp; df.DayInHospital_Y2 shared exactly the same unique values for memberID. Also, when compared with the unique values of df.Claims_Y1 the memberid was exactly the same. These checks were necessary to ensure no data was lost during merging.</p>
+<p>Next, an analysis of ther percent missing was performed</p>
+<center>
+<h4>
+Missing Value Table
+</h4>
+</center>
+<table class="table" style="margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:right;">
+Percent_Missing
+</th>
+</tr>
+</thead>
+<tbody>
+<tr grouplength="12">
+<td colspan="2" style="border-bottom: 1px solid;">
+<strong>Claims_Y1</strong>
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+MemberID
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+ProviderID
+</td>
+<td style="text-align:right;">
+0.61
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+vendor
+</td>
+<td style="text-align:right;">
+1.01
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+pcp
+</td>
+<td style="text-align:right;">
+0.25
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+Year
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+specialty
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+placesvc
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+paydelay
+</td>
+<td style="text-align:right;">
+6.92
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+LengthOfStay
+</td>
+<td style="text-align:right;">
+95.83
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+dsfs
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+PrimaryConditionGroup
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+CharlsonIndex
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr grouplength="3">
+<td colspan="2" style="border-bottom: 1px solid;">
+<strong>Members_Y1</strong>
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+MemberID1
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+sex
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+AgeAtFirstClaim
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr grouplength="2">
+<td colspan="2" style="border-bottom: 1px solid;">
+<strong>DayInHospital_Y2</strong>
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+DaysInHospital_Y2
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left; padding-left: 2em;" indentlevel="1">
+MemberID2
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="discussion-19" class="section level4">
+<h4>Discussion</h4>
+<p>The data quality for the dataset is not bad. The daysinhospital_Y2 and Members_Y1 dataset has no missing values. The claims_y1 has some missing values. Pay delay has ~7 percent of values missing. We mentioned earlier we will treat these as 0. We are assuming these people paid on time. Changed empty string in length of stay to missing. The Kaggle project description said that these values are suppressed therefore we will treat as missing. ProviderID, vendor, and pcp have minimal missing values. We could probably delete these observations, and move forward noting this decision in case later we want to re visit them.</p>
+<p>An investiagtion for duplicate rows found none.</p>
 </div>
 </div>
 </div>

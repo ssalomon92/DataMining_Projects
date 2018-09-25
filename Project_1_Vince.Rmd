@@ -456,7 +456,7 @@ ggarrange(n, t, r, s, ncol=2, padding=FALSE)
 #### Discussion
 The charts above show interactions between specialty, days since first service, and age at first claim. (not finished)
 
-```{r}
+```{r ,echo=FALSE}
 library(sqldf)
 
 only_1_claim<-
@@ -486,7 +486,7 @@ claim. By looking at the plot we can notice a positive correlation between the C
 the age of the individual. What this means is that if you are getting a young and an old individual
 filing a claim, the older individual is in average more likely to have a higher Charlson Index
 
-```{r}
+```{r, echo=FALSE}
 ggplot(data=df, aes(CharlsonIndex, paydelay)) +
   geom_boxplot() + #position='fill') +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
@@ -504,8 +504,66 @@ quartile.
 * Verigy data quality: Are there missing values? Duplicate Data? Outliers? Are those mistakes? How can these be fixed? [10 points]
 
 #### Discussion
-The datasets were merged on member id. During the merge...
-```{r}
-sum(sort(unique(df.Members_Y1$MemberID)) == sort(unique(df.Claims_Y1$MemberID)) &  sort(unique(df.Claims_Y1$MemberID)) == sort(unique(df.DayInHospital_Y2$MemberID)))
+When that datasets were first read an analysis of the key values was performed. It was found that df.Members & df.DayInHospital_Y2 shared exactly the same unique values for memberID. Also, when compared with the unique values of df.Claims_Y1 the memberid was exactly the same. These checks were necessary to ensure no data was lost during merging.
+
+```{r, echo=FALSE}
+# code for checking the key value quality
+checker <- sum(sort(unique(df.Members_Y1$MemberID)) == sort(unique(df.Claims_Y1$MemberID)) &  sort(unique(df.Claims_Y1$MemberID)) == sort(unique(df.DayInHospital_Y2$MemberID)))
 ```
+
+Next, an analysis of ther percent missing was performed
+
+<center> <h4>Missing Value Table</h4> </center>
+```{r, echo=FALSE}
+# Set working directory for 
+setwd('../hospital')
+## read in table since I previously fixed pay delay missing for chart
+df.Claims_Y1 <- read.csv('Claims_Y1.csv')
+
+# pct missing
+df.miss = data.frame()
+# function for calculating is.na()
+nap <- function(name,df){
+  sum(is.na(df[[name]])) / nrow(df)
+  
+}
+
+# convert empty to string to missing because we found from the 
+is.na(df.Claims_Y1$LengthOfStay) <- df.Claims_Y1$LengthOfStay==''
+
+# create dataframe of missing for claims
+df.missClaims <- data.frame(sapply(names(df.Claims_Y1), nap, df=df.Claims_Y1))
+df.missMembers <- data.frame(sapply(names(df.Members_Y1), nap, df=df.Members_Y1))
+df.missDays <- data.frame(sapply(names(df.DayInHospital_Y2), nap, df=df.DayInHospital_Y2))
+
+# make the names the same
+df.missClaims$Percent_Missing <- df.missClaims$sapply.names.df.Claims_Y1...nap..df...df.Claims_Y1. * 100
+df.missMembers$Percent_Missing <- df.missMembers$sapply.names.df.Members_Y1...nap..df...df.Members_Y1. * 100
+df.missDays$Percent_Missing <- df.missDays$sapply.names.df.DayInHospital_Y2...nap..df...df.DayInHospital_Y2. * 100
+
+# remove unwanted
+df.missClaims$sapply.names.df.Claims_Y1...nap..df...df.Claims_Y1. <- NULL
+df.missMembers$sapply.names.df.Members_Y1...nap..df...df.Members_Y1.<- NULL
+df.missDays$sapply.names.df.DayInHospital_Y2...nap..df...df.DayInHospital_Y2. <- NULL
+
+# bind together
+df.miss <- rbind(df.missClaims, df.missMembers, df.missDays)
+
+# round the variables
+df.miss$Percent_Missing <- data.frame(apply(df.miss, 1, FUN=round, digits=2))[,1]
+
+#create html table
+kable(df.miss) %>%    
+  group_rows('Claims_Y1',1,12) %>% 
+  group_rows('Members_Y1',13,15) %>% 
+  group_rows('DayInHospital_Y2',16,17) %>%
+  kable_styling(full_width=T)
+
+```
+
+#### Discussion
+The data quality for the dataset is not bad. The daysinhospital_Y2 and Members_Y1 dataset has no missing values. The claims_y1 has some missing values. Pay delay has ~7 percent of values missing. We mentioned earlier we will treat these as 0. We are assuming these people paid on time. Changed empty string in length of stay to missing. The Kaggle project description said that these values are suppressed therefore we will treat as missing. ProviderID, vendor, and pcp have minimal missing values. We could probably delete these observations, and move forward noting this decision in case later we want to re visit them.
+
+An investiagtion for duplicate rows found none.
+
 ## 3. Data Preperation
