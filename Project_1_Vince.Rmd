@@ -24,6 +24,7 @@ library('reshape')
 library('egg')
 library('gridExtra')
 library('cowplot')
+library('sqldf')
 ```
 
 ## 1. Busines Understanding
@@ -45,7 +46,7 @@ df.DayInHospital_Y2 <- read.csv('DayInHospital_Y2.csv')
 ## 2. Data Understanding
 * Describe the type of data (scale, values, etc.) for each attribute in the files Members_Y1.csv, Claims_Y1.csv and DayInHospital_Y2.csv. [10 point]
 
-<center> <h4>Dataset's Attribute Data Types</h4> </center>
+<center> </center>
 ```{r, results='asis'}
 # set options for the table
 options(knitr.kable.NA = '')
@@ -92,12 +93,15 @@ kable(df.datatype) %>%
   kable_styling(full_width=T)
  
 ```
+ </center>
+ 
+ Table 1: Datatypes and Level information
 
 #### Discussion
 The table above shows each variable in their respective dataset. A few variables such as MemberID, ProviderID, vendor, pcp are listed as integer values, but from the data dictionary we know these values should not be considered integers for analysis. These values will be converted to factors. MemberID appears in each dataset, but the column name is slightly different. We will need to remember this if we want to merge. Other integer values paydelay and DaysInHospital represent day counts. These values will be as integers. Lastly, there are many factor variables. Each factor count as well as the factors themselves are listed. A few things to note are year currently has no value considering it is the same for each row, LengthOfStay has missing values, and PrimaryConditionGroup has many factors comparatively. These are our preliminary findings when inspecting the data. I am sure there will be many to come!
 
 * Give simple appropriate statistics (range, mode, mean, median, variance, etc.) for most important attributes in these files and describe what they mean if you find something interesting. [10 points]
-<center> <h4>Summary Statistics for Integer Features</h4> </center>
+
 ```{r}
 # create function for stats requested
 my_stats <- function(x){
@@ -124,11 +128,13 @@ kable(df.int_stats) %>%
   group_rows('df.Claims_Y1',1,1) %>%
   group_rows('df.DayInHospital_Y2',2,2)
 ```
+Table 2: Summary statistics of current integer features
 
 #### Discussion
 The table above shows the min, max, mean, median, and standard deviation for the two integer variables found in the datasets. An assumption was made that missing values in the pay delay variable represent pay delay of 0. Inspecting the summary statistics for pay delay do not show much interesting information. The variable appears slightly skewed right. Inspecting the Days in Hospital Year 2 is slighly more interesting. The mean is very low considering the range. The standard deviation is also small. This variable appears that it is concentrated at 0. The summary statistics give some insight to these variables, but we can do better sleuthing with visualizations.
 
-<center> <h4>Most and Least Frequent Observations for Categorical Data</h4> </center>
+
+
 ```{r, echo=FALSE}
 options(knitr.kable.NA = 'Missing')
 # function for finding highest and lowest count
@@ -174,6 +180,8 @@ kable(df) %>%
   kable_styling(full_width=F)
 
 ```
+<center>Table 3: A min and max summary for each categorical variable </center>
+
 #### Discussion
 The table above shows the max variable, max percent, min variable, and min percent for the count of each categorical variable in the datasets. 
 
@@ -194,62 +202,74 @@ df<- merge(df.Claims_Y1,df.main,by='MemberID',all.x=TRUE)
 
 ### Integer Variable Visualizations
 
+<center>
 ```{r, echo=FALSE,results='hide',fig.keep='all',message=FALSE,error=FALSE}
 # comment for distr. overlay
 # the_tweed <- function(x){dtweedie(x, mu=mean(df$paydelay), phi=sd(df$paydelay)/3, power=1.1) *length(df$paydelay)*5}
 ggplot(data=df, aes(x=paydelay)) +
   geom_histogram(binwidth=5) +
-  labs(y='Count', x='Pay Delay' , title='Pay Delay Distribution') 
+  theme(plot.caption=element_text(hjust = -0.1, size=10)) +
+  labs(y='Count', x='Pay Delay' , caption='Figure 1: Distribution for paydelay variable') 
 ```
-
+</center>
 
 #### Discussion
 The pay delay distribtuion is a zero inflated outcome. This is in part due to our assumption that missing values represent people who paid on time. It should be noted that the mean pay delay given a pay delay appears to be 30 days. This could be due to a 30 day  notice. This could be useful for hospitals. What if a simple reminder at 15 months shifted the disrtibution left. This could help hospitals understand if their customers are forgetful or are deliberlately waiting a month to pay.
 
+<center>
 ```{r}
 ggplot(data=df.DayInHospital_Y2, aes(x=DaysInHospital_Y2)) +
   geom_histogram(binwidth=3) +
-  labs(y='Count', x='Days in the Hospital Year 2' , title='Days in the Hospital Year 2 Distribution') 
+  theme(plot.caption=element_text(hjust = -0.1, size=10)) +
+  labs(y='Count', x='Days in the Hospital Year 2' , caption='Figure 2: Distribution for Days in the Hospital Year 2 variable') 
 ```
-
+</center>
 
 #### Discussion
 This variable has alot of concentration at zero. It is odd that there is an uptick at 15. Reading the data dictionary you will find that anything above 15 is top coded to 15.
 
 ### Categorical Variable Visualizations
 
+<center>
 ```{r}
 # specialty visualization
 ggplot(data=df, aes(x=reorder(df$specialty,df$specialty,
                      function(x)-length(x)))) +
   geom_bar() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(y='Count', x='Specialty' , title='Specialty Breakdown')  
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.caption=element_text(hjust = -0.1, size=10)) +
+  labs(y='Count', x='Specialty' , caption='Figure 3: Bar graph for breakdown of specialty variable')  
 ```
+</center>
+
+
 
 #### Discussion
 The bar chart above shows the breakdown of generalized specialty. This variable has great room for improvment. The categories do not appear to be consistent related to the level of specialty they show. The higher categories to the left are not specific, and I believe their broadness is the reason why their count is higher. It is possible that this could be systemic allocation, but I think if possible there would be alot value in digging deeper for the broader categories. Currently the possibilty of overlap will make this variable less imformative.
 
+<center>
 ```{r}
 z <- ggplot(data=df, aes(x=reorder(df$placesvc,df$placesvc,
                      function(x)-length(x)))) +
   geom_bar() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(y='Count', x='Place of Service' , title='Place of Service')  
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),plot.caption=element_text(hjust =-0.1,size=10)) +
+  labs(y='Count', x='Place of Service' , caption='Figure 4: Bar graph for breakdown of place of service variable')  
 
 ggdraw(z)
 
 ```
+</center>
 
 #### Discussion
 The place of service is similar to the specialty variable. The barplot above shows the breakdown. When we comparing office to not office there could potentially be power in this variable, but our best guess is that beyound that this variable will not be useful. Office is very broad compared to the other variables. If trimming 6 variables was advantages I would consider changing this variable to Office or Not Office.
 
-```{r}
+<center>
+```{r, echo=FALSE}
 ggplot(data=df.Claims_Y1, aes(x = CharlsonIndex))+
   geom_bar() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(y='Count', x='Charlson Index' , title='Charlson Index Breakdown')
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.caption=element_text(hjust =-0.1,size=10)) +
+  labs(y='Count', x='Charlson Index' , caption='Figure 5: Bar graph for breakdown of charlson index variable')
 ```
+</center>
 
 #### Discussion
 The Charlson Index is a measure of the particular affect that a disease has on overall illness, grouped by significance, that generalizes additional diagnoses. Scores greater than zero
@@ -258,59 +278,66 @@ score of zero [1,4]. In lay terms, a higher Charlson Index implies a higher prob
 
 The Charlson Index distribution shown above has an exponential decay trend. This means that the probability of a particular claim on having a high Charlson Index in this particular hospital is rare.
 
+<center>
 ```{r}
 ggplot(data=df, aes(x=LengthOfStay)) +
   geom_bar() +
-  labs(y='Count', x='Length of Stay' , title='Length of Stay Breakdown') +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  labs(y='Count', x='Length of Stay' , caption='Figure 6: Bar graph for breakdown of length of stay variable') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),plot.caption=element_text(hjust =-0.1,size=10))
 ```
+</center>
 
 #### Discussion
 The breakdown for length of shows a clear data quality issue. This is consistent with our breakdwon of the Claims_Y1 dataset showing ~95% of the length of stay variable is missing. Hopefully the recording of a variable for this category has significance. If we wanted to trim variables we could change this category to missing, 1 day, and greater than 1 day.
 
+<center>
 ```{r}
 ggplot(data=df, aes(x=reorder(df$dsfs,df$dsfs,
                      function(x)-length(x)))) +
   geom_bar() +
-  labs(y='Count', x='Days Since First Claim' , title='Days Since First Claim Breakdown') +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  labs(y='Count', x='Days Since First Claim' , caption='Figure 7: Bar graph for breakdown of days since first claim variable') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.caption=element_text(hjust =-0.1,size=10))
 ```
+</center>
 
 #### Discussion
 This breakdown appears to have good data quality. According to the data dictionary the variable represents days since first claim for the current claim in each year. This variable is not very intuitve, and possibly relates to annual insurance policy premiums. If this variable is highly correlated with another it could be advantageous to choose the more intuitive option.
 
-
+<center>
 ```{r}
 # plot for primary condition variable
 ggplot(data=df, aes(x=reorder(df$PrimaryConditionGroup, df$PrimaryConditionGroup,
                      function(x)-length(x)))) +
   geom_bar() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1, size=7)) +
-  labs(y='Count', x='Pirmary Condition Group' , title='Primary Condition Group Breakdown')  
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size=7),plot.caption=element_text(hjust =-0.1,size=10)) +
+  labs(y='Count', x='Pirmary Condition Group' , caption='Figure 8: Bar graph for breakdown of primary condition group variable')  
 ```
+</center>
 
 #### Discussion
 The primary condition group does not appear to show anything extremely interesting other than some groups are more popular than others.
 
-
+<center>
 ```{r}
 # plot for primary condition variable
 ggplot(data=df.Members_Y1, aes(x=reorder(AgeAtFirstClaim, AgeAtFirstClaim,
                      function(x)-length(x)))) +
   geom_bar() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(y='Count', x='Age at First Claim' , title='Age at First Claim Breakdown') 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.caption=element_text(hjust =-0.1,size=10)) +
+  labs(y='Count', x='Age at First Claim' , caption='Figure 9: Bar graph for breakdown of age at first claim variable') 
 ```
-
+</center>
 
 #### Discussion
 The breakdown above shows the age at first claim. The largest group of age at first claim is 70-79 group. There is alot that do not have their first claim until they are over 80. That is great! 20-29 is the group that has the least first claims. What a time to be alive!
 
+<center>
 ```{r}
+
 ggplot(data=df.Members_Y1, aes(x = sex))+
   geom_bar() +
-  theme(axis.text.x = element_text(hjust = 1)) +
-  labs(y='Count', x='Gender' , title='Gender Breakdown') 
+  theme(axis.text.x = element_text(hjust = 1),plot.caption=element_text(hjust =-0.1,size=10)) +
+  labs(y='Count', x='Gender' , caption='Figure 10: Bar graph for breakdown of gender variable') 
 ```
 
 #### Discussion
@@ -321,31 +348,41 @@ The gender breakdown above shows a slightly lopsided breakdown in favor of the f
 
 Our initial approach is to view relationships between variables that have confirmed high quality above. Visualizing the relationships between the high quality varibles can be insightful for comparing while we attempt to handle fixing data quality issues. Relationships between variables that contain data quality issues can be viewed after they are adjusted in the next section.
 
-
+<center>
 ```{r}
+# for the bar plot
+df.agegender <- data.frame(table(df.Members_Y1$AgeAtFirstClaim, df.Members_Y1$sex))
+df.agegender$Gender <- df.agegender$Var2
 # create plot
-ggplot(data=df.Members_Y1, aes(AgeAtFirstClaim,fill=sex)) +
-  geom_bar(position='fill') +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(y='Count', x='Age at First Claim' , title='Age at First Claim Breakdown') 
+ggplot(data=df.agegender, aes(x=Var1,fill=Gender,y=Freq)) +
+  geom_bar(stat='identity') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),plot.caption=element_text(hjust =-0.1,size=10)) +
+  labs(y='Count', x='Age at First Claim' , caption='Figure 11: Bar graph with gender distribution for breakdown  of age at first claim variable') 
   
 ```
+</center>
 
 #### Discussion
 The plot above shows shows that the distribution of sex across the age at first claim is near the expected value. This helps the assumption that there was randoming sampling as related to age at first claim and sex from the members dataset. If the members data set had very different distribution of sex across age at first claim we could suspect bad sampling methods.
 
-
+<center>
 ```{r}
+# create for plot
+df.charind <- data.frame(table(df$CharlsonIndex, df$sex))
+# fix for lengend
+df.charind$Gender <- df.charind$Var2
 # create plot
-ggplot(data=df, aes(CharlsonIndex,fill=sex)) +
-  geom_bar(position='dodge') +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(y='Count', x='Charlson Index' , title='Charlson Index for Claims by Sex') 
+ggplot(data=df.charind, aes(x=Var1,fill=Gender,y=Freq)) +
+  geom_bar(stat='identity') +
+  theme(plot.caption=element_text(hjust =-0.1,size=10), axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(y='Count', x='Charlson Index' , caption='Figure 12: Bar graph with gender distribution for breakdown  of charlson index variable') 
 ```
+</center>
 
 #### Discussion
 This plot is interesting because while we know there are more females, and we've stated that on average females have more claims per individual we can clearly see that the proportion of males and females in each Charlson Index is not normal. Females appear to claim less severe incidents as reported by the Charlson Index. Investigating the distributions for days spent in the hospital during year 2 for male and female show slightly different distributions. The table below shows that females have a slightly higher mean for days spent in the hospital than males. This is interesting give our knowledge of the severity of their claims. This prior imformation could 
-<center> <h6>Days Spend In the Hospital in Year 2</h6> </center>
+
+<center> 
 ```{r, echo=FALSE}
 # create gender compare variable
 # make means table
@@ -358,8 +395,9 @@ row.names(means) <- 'Mean'
 kable(means) %>%
   kable_styling(full_width=F)
 ```
-
-
+</center>
+<center> Table 4: Mean days spent in the hospital during year 2 by gender </center>
+<center>
 ```{r, echo=FALSE}
 z <- ggplot(data=df, aes(x=reorder(df$placesvc,df$placesvc,
                      function(x)-length(x)))) +
@@ -388,7 +426,8 @@ c <- ggplot(data=df, aes(y=specialty,x=AgeAtFirstClaim)) +
       labs(x='Age at first claim') 
 
 ```
-<center> <h5>Joint Distributions of Categorical Variables</h5> </center>
+</center>
+
 <center>
 ```{r, echo=FALSE}
 m <- ggplot(data=df, aes(x=reorder(df$dsfs,df$dsfs,
@@ -449,15 +488,16 @@ t <- ggplot(data=df, aes(y=dsfs,x=AgeAtFirstClaim)) +
 
    
 
-ggarrange(n, t, r, s, ncol=2, padding=FALSE)
+ggarrange(n, t, r, s, ncol=2, padding=FALSE) 
 ```
 </center>
+<center>Figure 13: Joint variable density plots between age at first claim, days since first service, and specialty</center>
 
 #### Discussion
 The charts above show interactions between specialty, days since first service, and age at first claim. (not finished)
 
+<center>
 ```{r ,echo=FALSE}
-library(sqldf)
 
 only_1_claim<-
   sqldf("
@@ -470,13 +510,17 @@ only_f<-
         select only_1_claim.*
         from only_1_claim
         where count1 = 1  ")#and CharlsonIndex != 0")
-
-ggplot(data=only_f, aes(AgeAtFirstClaim,fill=CharlsonIndex)) +
-  geom_bar(position='fill') +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(y='Count', x='Age' , title='Age when Claim was made Breakdown')
+# for plot
+df.only_f <- data.frame(table(only_f$AgeAtFirstClaim, only_f$CharlsonIndex))
+# rename
+df.only_f$CharlsonIndex <- df.only_f$Var2
+ggplot(data=df.only_f, aes(x=Var1,y=Freq,fill=CharlsonIndex)) +
+  geom_bar(stat='identity') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),plot.caption=element_text(hjust =-.1,size=10)) +
+  labs(y='Count', x='Age' , caption='Figure 14: Bar graph with charlson index distribution for breakdown  of age when first claim variable')
   
 ```
+</center>
 
 ###Discussion:
 This plot is interesting because in this one we get roughly the age of the individual. The way this
@@ -486,13 +530,14 @@ claim. By looking at the plot we can notice a positive correlation between the C
 the age of the individual. What this means is that if you are getting a young and an old individual
 filing a claim, the older individual is in average more likely to have a higher Charlson Index
 
+<center>
 ```{r, echo=FALSE}
 ggplot(data=df, aes(CharlsonIndex, paydelay)) +
   geom_boxplot() + #position='fill') +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(y='Pay Delay (days)', x='Charlson Index', title='Box Plots of Pay Delay by Charlson Index')
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.caption=element_text(hjust =-0.1,size=10)) +
+  labs(y='Pay Delay (days)', x='Charlson Index', caption='Figure 15: Box Plot comparison of Pay Delay by Charlson Index')
 ```
-
+</center>
 
 ###Discussion:
 This box plot shows us the distribution of each of the 4 different Charlson Index with respect to the
@@ -513,7 +558,7 @@ checker <- sum(sort(unique(df.Members_Y1$MemberID)) == sort(unique(df.Claims_Y1$
 
 Next, an analysis of ther percent missing was performed
 
-<center> <h4>Missing Value Table</h4> </center>
+
 ```{r, echo=FALSE}
 # Set working directory for 
 setwd('../hospital')
@@ -557,9 +602,10 @@ kable(df.miss) %>%
   group_rows('Claims_Y1',1,12) %>% 
   group_rows('Members_Y1',13,15) %>% 
   group_rows('DayInHospital_Y2',16,17) %>%
-  kable_styling(full_width=T)
+  kable_styling(full_width=F)
 
 ```
+<center> Table 5: Describing the missing values for each variable </center>
 
 #### Discussion
 The data quality for the dataset is not bad. The daysinhospital_Y2 and Members_Y1 dataset has no missing values. The claims_y1 has some missing values. Pay delay has ~7 percent of values missing. We mentioned earlier we will treat these as 0. We are assuming these people paid on time. Changed empty string in length of stay to missing. The Kaggle project description said that these values are suppressed therefore we will treat as missing. ProviderID, vendor, and pcp have minimal missing values. We could probably delete these observations, and move forward noting this decision in case later we want to re visit them.
@@ -567,3 +613,23 @@ The data quality for the dataset is not bad. The daysinhospital_Y2 and Members_Y
 An investiagtion for duplicate rows found none.
 
 ## 3. Data Preperation
+* Create additional attributes (columns) which might be of interest. For example, for each pation it might be interesting how many claims were filed. Maybe the claims need to be categorized? [20 points]
+<center>
+```{r}
+# count of claims per member id
+df.claims_per_memberid <- data.frame(table(df.Claims_Y1$MemberID))
+# merge to members dataset
+df.Members_Y1 <- merge(df.Members_Y1,df.claims_per_memberid,by.x='MemberID', by.y='Var1',all.y=TRUE)
+# change name
+df.Members_Y1$Claims_During_Y1 <- df.Members_Y1$Freq
+# remove to avoid issues
+df.Members_Y1$Freq<-NULL
+# plot
+ggplot(df.Members_Y1, aes(Claims_During_Y1)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.caption=element_text(hjust =-0.1,size=10)) +
+  labs(y='Count', x='Claims per Year 1', caption='Figure 16: Distribution of claims per member ID for year 1')
+```
+</center>
+
+#### Discussion
