@@ -31,9 +31,10 @@ library('sqldf')
 
 * Why is it important to know about claims, medication, days spent in the hospital, and readmission rates? Who is interested in this information? What decisions can be informed using such data?[10 Point]
 
-Having a thorough understanding about claims, medication, days spent in the hospital, and readmission rates is extremely benefitial for hospital, healthcare providers, and patients. With comprehensive knowledge of the aforementioned information, health care providers can develop new care plans and strategies to reach patients before emergencies occur; thus, reducing unnessary hospitalizations. This in turn will increase the health of patients while decreasing the cost of care.
+The hospitalization process starts with the member filing a claim, the claim at that point is registered and the data collection, including when the claim was made, begins. The member will then be attended by a doctor or specialist, described in the Provider ID, based on the member's needs. The doctor may recommend a place of service (could be from the patient's home, hospital, lab, ambulance, or from the doctor's private office). The claim also contains other important info like the patient's PCP (primary care phisician), the specialty of the treatment, etc. The claim will then proceed and afterward the bill will be issued to the Vendor, the company that issues the bill, which in turn will contact the patient for the bill.
 
-The reason for this project....
+According to the latest survey from the American Hospital Association, more than 71 million individuals in the United States visit a hospital each year. Studies have concluded that in 2006 well over $30 billion was spent on unnecessary hospital admissions. Having a thorough understanding about claims, medication, days spent in the hospital, and readmission rates is extremely benefitial for hospital, healthcare providers, and patients. With comprehensive knowledge of the aforementioned information in conjunction with the use of data mining, health care providers can develop new care plans and strategies to reach patients before emergencies occur; Thus, reducing unnessary hospitalizations. This in turn will increase the health of patients while decreasing the cost of care.
+
 
 ```{r echo=FALSE}
 # Set working directory for 
@@ -494,7 +495,7 @@ rm(a,b,c,m,n,o,p,q,t,r,s)
 </center>
 <center>Figure 13: Joint variable density plots between age at first claim, days since first service, and specialty</center>
 
-#### Discussion
+#### Discussion:
 The charts above show interactions between specialty, days since first service, and age at first claim. Age at first claim was merged to the Claims_Y1 dataset. Age at first claim is repeadeted for the specific memberid that it corresponds with within the Claims_Y1 dataset. 
 
 This chart shows the concentraion of the claims as it relates to these categorical variable e.g. the observations that have higher age at first claim concentrate in generale practice, internal, and laboratory for the specialty variable. This is concentraion for the specialty variable also occurs for lo days since first claim greater than 1 month. The 0-1 months category for days since first claim is the category that seems least effected when varying specialty. The 0-1 mont category is also least effected when comparing across age at first claim i.e. if the days since first claim is high more than likely the age when the first claim was made is also high.
@@ -527,7 +528,7 @@ ggplot(data=df.only_f, aes(x=Var1,y=Freq,fill=CharlsonIndex)) +
 ```
 </center>
 
-###Discussion:
+#### Discussion:
 This plot is interesting because in this one we get roughly the age of the individual. The way this
 was done was by manipulating the data in order to get only the individuals that have made one claim,
 therefore the age of their first claim is the same age that they had when they filed that particular
@@ -547,12 +548,35 @@ ggplot(data=df, aes(CharlsonIndex, paydelay)) +
 ```
 </center>
 
-###Discussion:
+#### Discussion:
 This box plot shows us the distribution of each of the 4 different Charlson Index with respect to the
 pay delay. I was orginially expecting to be more delay on the higher indexes, but the graph shows
 each of the medians to be very similar between each other. The distribution also tells us that there
 are more people who pay later than right away since the the upper quartile is bigger than the 1st
 quartile.
+
+<center>
+```{r}
+grid.arrange(ggplot(subset(df, CharlsonIndex == "0"),aes(x = paydelay)) + 
+               geom_histogram(fill = "grey20", binwidth = 4) + ggtitle("CI = 0")+
+               theme(axis.title.x=element_blank(),axis.title.y=element_blank()),
+             ggplot(subset(df, CharlsonIndex == "1-2"),aes(x = paydelay)) + 
+               geom_histogram(fill = "grey20", binwidth = 4) + ggtitle("CI = 1-2")+
+               theme(axis.title.x=element_blank(),axis.title.y=element_blank()),
+             ggplot(subset(df, CharlsonIndex == "3-4"),aes(x = paydelay)) + 
+               geom_histogram(fill = "grey20", binwidth = 4) + ggtitle("CI = 3-4")+
+               theme(axis.title.x=element_blank(),axis.title.y=element_blank()),
+             ggplot(subset(df, CharlsonIndex == "5+"),aes(x = paydelay)) + 
+               geom_histogram(fill = "grey20", binwidth = 4) + ggtitle("CI = 5+") +
+               theme(axis.title.x=element_blank(),axis.title.y=element_blank())
+             , ncol=2)
+```
+</center>
+<center>Figure 16: Distribution of pay delay for each charlson index</center>
+
+#### Discussion:
+This graph above displays the histogram of paydelay according to each unique Charlson Index value. What is very interesting about the results is that the distribution remain extremely similar regardless of the CI, even taking into account that each of the graphs have very different counts. All of the graphs are right  skewed and this is expected since the value of paydelay cannot be less than 0. The graphs also have a truncated distribution, these might be the result of vendors not processing payments on the weekends.
+We can notice 3 unique high points in most of the graphs. One is at the beginning at 0, this is expected since many of the patients pay at the moment of getting their service. The two other spikes lie in the days 31-33 and 37-39. Further studying these points in particular could provide insight in trying to reduce the pay delay.
 
 * Verigy data quality: Are there missing values? Duplicate Data? Outliers? Are those mistakes? How can these be fixed? [10 points]
 
@@ -637,7 +661,7 @@ df.Members_Y1$Freq<-NULL
 ggplot(df.Members_Y1, aes(Claims_During_Y1)) +
   geom_histogram(bins=37) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.caption=element_text(hjust =-0.1,size=10)) +
-  labs(y='Count', x='Claims', caption='Figure 16: Distribution of claims per member ID for year 1')
+  labs(y='Count', x='Claims', caption='Figure 17: Distribution of claims per member ID for year 1')
 ```
 </center>
 
@@ -674,7 +698,7 @@ ggarrange(b,a,ncol=2)
 
 ```
 </center>
-Figure 17: Distribution of mean months since first claim per member ID viewed, and average mean months viewed across age at first claim for year 1
+Figure 18: Distribution of mean months since first claim per member ID, and average mean months across age at first claim for year 1
 
 #### Discussion
 The mean months since first service variable is zero inflated. This is in part because first claims are coded the same as being within 1 month of the first claim. As mentioned before we may need to try to fix this. Viewing the boxplot on the right we can see that on average those whose age at first claim is higher usually results in larger time since first claims. This is similar to our thoughts above that those with age at at first claim are likely to have less claims, and now we can see they have on average longer time between claims. Since this variable is since the first claim this could be due to the fact they have more claims, and claims take time.
@@ -700,12 +724,12 @@ colnames(df.vend_count) <- c('MemberID', 'Vendor_Count')
 df.Members_Y1 <- merge(df.Members_Y1,df.vend_count, by='MemberID', all.x=T)
 
 a <- ggplot(df.Members_Y1, aes(Vendor_Count,DaysInHospital_Y2)) +
-  geom_jitter() +
+  geom_jitter(alpha=.1) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.caption=element_text(hjust =-0.1,size=10)) +
   labs(y='Days In Hospital Y2', x='Vendor Count')
 
 b <- ggplot(df.Members_Y1, aes(Provider_Count,DaysInHospital_Y2)) +
-  geom_jitter() +
+  geom_jitter(alpha=.1) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.caption=element_text(hjust =-0.1,size=10)) +
   labs(y='Days In Hospital Y2', x='Provider Count')
 
@@ -713,7 +737,7 @@ ggarrange(a,b,ncol=2)
 rm(a,b)
 ```
 </center>
-Figure 18: Correlation between the days in hospital during year 2 and counts of vendor (left) & provider (right)
+Figure 19: Correlation between the days in hospital during year 2 and counts of vendor (left) & provider (right)
 
 #### Discussion
 The count of vendor and the count of provider per member id varibles were created. The variables are very similar to one another, and there relationship to days in hospital during year 2 is also similar. This could be due to the fact that switchin providers mostly results in changing vendors. This chart also shows how the capping of the days in hospital during year 2 can cause for un natural correlation with variables.
