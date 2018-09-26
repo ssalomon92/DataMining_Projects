@@ -301,7 +301,7 @@ ggplot(data=df, aes(x=reorder(df$dsfs,df$dsfs,
 </center>
 
 #### Discussion
-This breakdown appears to have good data quality. According to the data dictionary the variable represents days since first claim for the current claim in each year. What if this is the first claim? The variable has no missing values, and the first claim could be grouped in the 0-1 month category. This variable is not very intuitve, and possibly relates to annual insurance policy premiums.If this variable is highly correlated with another it could be advantageous to choose the more intuitive option. If not aggregating by memberid after coding the variable as numeric and creating a average number of days between claims could be useful. Additional improvment to the variable is a breakdown of the first category to 0-1 month and first claim by attempting to classify the distinctions.
+This breakdown appears to have good data quality. According to the data dictionary the variable represents days since first claim for the current claim in each year. The variable has no missing values, and the first claim is grouped in the 0-1 month category. This was found through our own analysis. This variable is not very intuitve, and possibly relates to annual insurance policy premiums.If this variable is highly correlated with another it could be advantageous to choose the more intuitive option. If not aggregating by memberid after coding the variable as numeric and creating a average number of days between claims could be useful. Additional improvment to the variable is a breakdown of the first category to 0-1 month and first claim by attempting to classify the distinctions.
 
 <center>
 ```{r}
@@ -489,6 +489,7 @@ t <- ggplot(data=df, aes(y=dsfs,x=AgeAtFirstClaim)) +
    
 
 ggarrange(n, t, r, s, ncol=2, padding=FALSE) 
+rm(a,b,c,m,n,o,p,q,t,r,s)
 ```
 </center>
 <center>Figure 13: Joint variable density plots between age at first claim, days since first service, and specialty</center>
@@ -636,8 +637,90 @@ df.Members_Y1$Freq<-NULL
 ggplot(df.Members_Y1, aes(Claims_During_Y1)) +
   geom_histogram(bins=37) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.caption=element_text(hjust =-0.1,size=10)) +
-  labs(y='Count', x='Claims per Year 1', caption='Figure 16: Distribution of claims per member ID for year 1')
+  labs(y='Count', x='Claims', caption='Figure 16: Distribution of claims per member ID for year 1')
 ```
 </center>
 
 #### Discussion
+This distribution shows claims per member id during year 1. This gives good insight to the frequency of claims, and shows that most memberid have greater than 1 claim.
+
+
+<center>
+```{r}
+df.claims_per_memberid <- data.frame(table(df.Claims_Y1$MemberID))
+# merge to members dataset
+df.check_dsfs <- merge(df.Claims_Y1,df.claims_per_memberid[which(df.claims_per_memberid$Freq==1),],by.x='MemberID', by.y='Var1',all.y=TRUE)
+# viewing df.check_dsfs shows that only one claim givves 0-1month meaning they are grouped
+# convert dsfs to numerical
+df.Claims_Y1$dsfs <- as.numeric(revalue(df.Claims_Y1$dsfs, c('0- 1 month'=1, '1- 2 months'=2, '10-11 months'=11, '11-12 months'=12, '2- 3 months'=3, '3- 4 months'=4, '4- 5 months'=5, '5- 6 months'=6, '6- 7 months'=7, '7- 8 months'=8, '8- 9 months'=9, '9-10 months'=10 )))
+# find mean change names
+df.dsfs_mean <-aggregate(df.Claims_Y1$dsfs, list(df.Claims_Y1$MemberID), mean)
+colnames(df.dsfs_mean) <- c('MemberID', 'dsfs.mean')
+# merge to members
+df.Members_Y1 <- merge(df.Members_Y1, df.dsfs_mean, by.x='MemberID', by.y='MemberID', all.x=T)
+
+# plot
+a <- ggplot(df.Members_Y1, aes(y=dsfs.mean, x=AgeAtFirstClaim)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.caption=element_text(hjust =-0.1,size=10)) +
+  labs(y='Months', x='Age at first claim')
+
+b <- ggplot(df.Members_Y1, aes(dsfs.mean)) +
+  geom_histogram(bins=37) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.caption=element_text(hjust =-0.1,size=10)) +
+  labs(y='Count', x='Months')
+
+ggarrange(b,a,ncol=2)
+
+```
+</center>
+Figure 17: Distribution of mean months since first claim per member ID viewed, and average mean months viewed across age at first claim for year 1
+
+#### Discussion
+The mean months since first service variable is zero inflated. This is in part because first claims are coded the same as being within 1 month of the first claim. As mentioned before we may need to try to fix this. Viewing the boxplot on the right we can see that on average those whose age at first claim is higher usually results in larger time since first claims. This is similar to our thoughts above that those with age at at first claim are likely to have less claims, and now we can see they have on average longer time between claims. Since this variable is since the first claim this could be due to the fact they have more claims, and claims take time.
+
+<center>
+```{r}
+# create count of providers for member id and merge to members
+df.Claims_Y1$ProviderID <- as.factor(df.Claims_Y1$ProviderID)
+df.provID_count <- df.Claims_Y1 %>% group_by(as.factor(MemberID), ProviderID) %>% tally()
+df.provID_count <- data.frame(table(df.provID_count$`as.factor(MemberID)`))
+df.Claims_Y1$MemberID <- as.factor(df.Claims_Y1$MemberID)
+colnames(df.provID_count) <- c('MemberID', 'Provider_Count')
+df.Members_Y1 <- merge(df.Members_Y1,df.provID_count, by='MemberID', all.x=T)
+
+# merge y2
+df.Members_Y1 <- merge(df.Members_Y1,df.DayInHospital_Y2,by='MemberID', all.x=T)
+
+# same for vendor
+df.Claims_Y1$vendor <- as.factor(df.Claims_Y1$vendor)
+df.vend_count <- df.Claims_Y1 %>% group_by(as.factor(MemberID), vendor) %>% tally()
+df.vend_count <- data.frame(table(df.vend_count$`as.factor(MemberID)`))
+colnames(df.vend_count) <- c('MemberID', 'Vendor_Count')
+df.Members_Y1 <- merge(df.Members_Y1,df.vend_count, by='MemberID', all.x=T)
+
+a <- ggplot(df.Members_Y1, aes(Vendor_Count,DaysInHospital_Y2)) +
+  geom_jitter() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.caption=element_text(hjust =-0.1,size=10)) +
+  labs(y='Days In Hospital Y2', x='Vendor Count')
+
+b <- ggplot(df.Members_Y1, aes(Provider_Count,DaysInHospital_Y2)) +
+  geom_jitter() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.caption=element_text(hjust =-0.1,size=10)) +
+  labs(y='Days In Hospital Y2', x='Provider Count')
+
+ggarrange(a,b,ncol=2)
+rm(a,b)
+```
+</center>
+Figure 18: Correlation between the days in hospital during year 2 and counts of vendor (left) & provider (right)
+
+#### Discussion
+The count of vendor and the count of provider per member id varibles were created. The variables are very similar to one another, and there relationship to days in hospital during year 2 is also similar. This could be due to the fact that switchin providers mostly results in changing vendors. This chart also shows how the capping of the days in hospital during year 2 can cause for un natural correlation with variables.
+
+## Exceptional Work
+```{r}
+
+```
+
+
