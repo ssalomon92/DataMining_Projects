@@ -742,6 +742,32 @@ Figure 19: Correlation between the days in hospital during year 2 and counts of 
 #### Discussion
 The count of vendor and the count of provider per member id varibles were created. The variables are very similar to one another, and there relationship to days in hospital during year 2 is also similar. This could be due to the fact that switchin providers mostly results in changing vendors. This chart also shows how the capping of the days in hospital during year 2 can cause for un natural correlation with variables.
 
+<center>
+```{r, echo=FALSE, warning=F}
+# revalue lenght of stay
+df.Claims_Y1$LengthOfStay <- as.numeric(revalue(df.Claims_Y1$LengthOfStay, c('1- 2 weeks'=10.5, '1 day'=1, '12-26 weeks'=133, '2- 4 weeks'=21, '2 days'=2, '26+ weeks'=182, '3 days'=3, '4- 8 weeks'=42, '4 days'=4, '5 days'=5, '6 days'=6, '8-12 weeks'=84 )))
+
+# sums
+df.days_y1 <- aggregate(df.Claims_Y1$LengthOfStay, list(df.Claims_Y1$MemberID), sum)
+# rename
+colnames(df.days_y1) <- c('MemberID', 'LengthOfStayY1')
+# merge to members
+df.Members_Y1 <- merge(df.Members_Y1, df.days_y1, by.x='MemberID', by.y='MemberID', all.x=T)
+
+#plot
+ggplot(df.Members_Y1, aes(LengthOfStayY1)) +
+  geom_histogram(bins=20) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), plot.caption=element_text(hjust =-0.1,size=10)) +
+  labs(y='Count', x='Days', caption='Figure 20: Distribution of total days in hospital for MemberID in year 1')
+
+```
+</center>
+
+#### Discussion
+This plot was creating using the sum of length of stay for each MemberID. The median total days spent in the hopsital for the non suppressed values is ~6. The sparsity of the original length of variable is seen even after adding up the days for each member ID. The sum was calculated for less than 1000 of the 77289 unique MemberIDs. Even with the sparsity the fact that a variable is not missing could have significance.
+
+Above the figures and discussions show 5 variables that we have created and merged on the members dataset. These variables will be useful if we would like to use the member level for predicting days in the hospital during year 2. Feature engineering is an iterative process, and there are many possibilites for the variables we create. After the modeling process has began we can revisit our variables, and add or remove variables as we see fit.
+
 ## Exceptional Work
 ```{r}
 
