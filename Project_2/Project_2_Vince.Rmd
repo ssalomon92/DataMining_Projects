@@ -1,30 +1,171 @@
 ---
-title: "Project_2"
-author: "Vince_Miller"
-date: "October 14, 2018"
-output: html_document
+output:
+  html_document: default
+  word_document: default
 ---
 
+
+## Project 2
+#### Group Members: Vince Miller & Sebastian Salomon
+
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+# create tool kit and visualization sizes
+knitr::opts_chunk$set(fig.height=3.5,fig.width=8)
+knitr::opts_chunk$set(echo = FALSE)
+library('MASS')
+library('dplyr')
+library('knitr')
+library('lemon')
+library('tweedie')
+library('kableExtra')
+library('modeest')
+library('ggplot2')
+library('tidyr')
+library('reshape')
+library('egg')
+library('gridExtra')
+library('cowplot')
+library('sqldf')
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```{r echo=FALSE}
+# Set working directory for 
+setwd('C:\\Users\\MillerV\\Documents\\Masters Statistics\\CSE7331\\Projects\\DataMining_Projects')
+## read in all the data and convert to tibble, this is the tidyverse dataframe
+df.claims <- read.csv(file="Claims.csv") %>% as_tibble()
+df.members <- read.csv(file="Members.csv") %>% as_tibble()
+df.drugs <- read.csv(file="DrugCount.csv") %>% as_tibble()
+df.labs <- read.csv(file="LabCount.csv") %>% as_tibble()
+```
+### 3. Data Preparation [30 points]
+* Describe which features you want to use for clustering and why. [20]
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+```{r, echo=F}
+# filter for year 1
+df.claims_Y1 <- df.claims %>%
+  filter(Year=='Y1') %>%
+  select(-Year)
 
-```{r cars}
-summary(cars)
+df.labs_Y1 <- df.labs %>%
+  filter(Year=='Y1') %>%
+  select(-Year)
+
+df.drugs_Y1 <- df.drugs %>%
+  filter(Year=='Y1') %>%
+  select(-Year)
+  
+df.members_Y1 <- df.members
+
+# free memory by removing unfiltered data
+rm(df.members,df.claims,df.drugs,df.labs)
+
+# create number of claims, providers, specialists, vendors, place service and pcp variables
+df.members_Y1 <- df.claims_Y1 %>%
+  group_by(MemberID) %>%
+  summarize(N_claims = n(),
+            N_Specialists=n_distinct(Specialty), 
+            N_Providers=n_distinct(ProviderID),
+            N_vendors=n_distinct(Vendor),
+            N_PCP=n_distinct(PCP),
+            N_places=n_distinct(PlaceSvc)) %>%
+  left_join(df.members_Y1, by='MemberID')
+
+# create number of drug claims variables assume 0 drug claims for member ID not in year 1 of drug dataset.
+df.members_Y1 <- df.drugs_Y1 %>%
+  group_by(MemberID) %>%
+  summarize(N_drugclaims = n()) %>%
+  right_join(df.members_Y1, by='MemberID') %>%
+  mutate(N_drugclaims = replace_na(N_drugclaims,replace=0))
+
+# create number of lab claims variables assume 0 drug claims for member ID not in year 1 of lab dataset.
+df.members_Y1 <- df.labs_Y1 %>%
+  group_by(MemberID) %>%
+  summarize(N_labclaims = n()) %>%
+  right_join(df.members_Y1, by='MemberID') %>%
+  mutate(N_labclaims = replace_na(N_labclaims,replace=0))
+
+# recode charleston index and create difference variable
+df.members_Y1 <- df.claims_Y1 %>%
+  mutate(CharlsonIndex = recode(CharlsonIndex, `0`=0, `1-2`=1.5, `3-4`=3.5, `5+`=5)) %>%
+  group_by(MemberID) %>%
+  summarize(Max_Charlson = max(CharlsonIndex),
+            Min_Charlson = min(CharlsonIndex)) %>%
+  mutate(char_diff = Max_Charlson - Min_Charlson) %>%
+  right_join(df.members_Y1, by='MemberID')
+
+# translate age variable and change sex to numeric
+df.members_Y1 <- df.members_Y1 %>%
+  mutate(age = recode(AgeAtFirstClaim, `""`=NULL, `0-9`=4.5, `10-19`=14.5, `20-29`=24.5, `30-39`=34.5, `40-49`=44.5, `50-59`=54.5, `60-69`= 64.5, `70-79`=74.5, `80+`=84.5),
+         male = ifelse(Sex=='M',1,0),
+         female= ifelse(Sex=='F',1,0)) %>%
+  select(-Sex,-AgeAtFirstClaim)
 ```
 
-## Including Plots
+```{r}
+# create table for viewing variables
+df.created_features <- cbind(lapply(df.members_Y1, max,na.rm=T),lapply(df.members_Y1, mean, na.rm=T),lapply(df.members_Y1, min, na.rm=T),lapply(df.members_Y1,function(x) sum(is.na(x))))
 
-You can also embed plots, for example:
+# change col names and round
+colnames(df.created_features) <- c('MAX','MEAN','MIN', 'NA Count')
+df.created_features[2:15,] <- format(df.created_features[2:15,], digits=3)
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+# create table
+kable(df.created_features[2:15,]) %>%
+  group_rows('Charlson Features',1,3) %>% 
+  group_rows('Counts',4,11) %>%
+  group_rows('Age',12,12) %>% 
+  group_rows('Gender',13,14) %>%
+  kable_styling(full_width=F)
+
+```
+Table 1: Features used for clustering
+
+#### Discussion
+All features for clustering were created at the member level. This was done to help understand how we can cluster patients as opposed to other possible levels such as claim level. 
+
+The first 3 variables shown are the min, max, and difference for the charlson index for each of the patients claims. These variables can be used at an attempt to use severity of a members claim or the change of severity from claim to claim for a member.
+
+Count variables were also created at the member level. The total number of claims by a member. The number of lab claims and drug claims each member made. The number of different specialist a member has seen. The number of unique providers, vendors, and pcp that each member has used for a claim as well as the number of different places. These count variables can be used to determine if patterns of activity can cluster our members.
+
+The age of the members has been included. This variable can be used for controlling for age while clustering. Also it should be noted that Age has missing values....
+
+The gender of the member is also inclduded. This variable has been split into two columns; an indicator for male and an indicator for female. There were missing values therefore it is possible to have a 0 for each of these columns.
+
+* What is the scale of measurement of the features and what are appropriate distance measures?[10]
+
+```{r}
+# standardize the data
+df.members_Y1 <- df.members_Y1 %>% 
+  mutate_at(vars(-MemberID), funs(scale(.) %>% as.vector))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+#### Discussion
+Standardized: mean=0, sd=1, euclidean distance
+
+### 4. Modeling [50 points]
+* Perform cluster analysis using several methods (at least k-means and hierarchical clustering)
+using different feature subsets. [30]
+
+```{r}
+# remove Member ID
+df <- df.members_Y1 %>% select(-MemberID)
+
+# fill age
+df <- df %>%
+  mutate(age = replace_na(age, replace=0))
+
+# cluster
+km.out <- kmeans(df,5,nstart=20)
+
+
+def.par <- par(no.readonly = TRUE, mar = c(8.1, 4.1, 4.1, 2.1)) # save default, for resetting...
+layout(t(1:5)) # 4 plots in one
+for(i in 1:5) barplot(km.out$centers[i,], main=paste("Cluster", i), las = 2)
+```
+
+```{r}
+km.out$tot.withinss
+```
+
+
