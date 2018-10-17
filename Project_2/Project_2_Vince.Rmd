@@ -131,7 +131,7 @@ The first 3 variables shown are the min, max, and difference for the charlson in
 
 Count variables were also created at the member level. The total number of claims by a member. The number of lab claims and drug claims each member made. The number of different specialist a member has seen. The number of unique providers, vendors, and pcp that each member has used for a claim as well as the number of different places. These count variables can be used to determine if patterns of activity can cluster our members.
 
-The age of the members has been included. This variable can be used for controlling for age while clustering. Also it should be noted that Age has missing values....
+The age of the members has been included. This variable can be used for controlling for age while clustering. Also it should be noted that Age has missing values. Our team chose to impute the values of age with the mean age for the entire members dataset. This could cause issues with our analysis because both kmeans and hierarchical clustering require each observation to be in a cluster. This imputation method could result in the clustering algorithm performance to degrage. Due to the reasons stated age will not be used for clustering but only for investigating the clusters. 
 
 The gender of the member is also inclduded. This variable has been split into two columns; an indicator for male and an indicator for female. There were missing values therefore it is possible to have a 0 for each of these columns.
 
@@ -144,7 +144,7 @@ df.members_Y1_scaled <- df.members_Y1 %>%
 ```
 
 #### Discussion
-Standardized: mean=0, sd=1, euclidean distance
+The features used will be scaled to have a mean of 0 and a standard deviation of 1 for both kmeans and hierarchical clustering. Euclidean distance as opposed to cosine distance or a correlation measure will be used for each of the stated clustering methods. Currently, we do not have evidence to suggest one option of distance is better as opposed to others for our features. Additional analysis could be performed to compare how the clusters are formed using cosine distance or correlation measure, but that is not within the scope of our analysis. Clustering algorithms require subjective decisions such as distance measure choice.There is no doubt that differnt choices result in different clustering results, but due to the exploratory nature of clustering the ability to generalize intuitive results is a acceptable reasoning for selecting a distance.
 
 ### 4. Modeling [50 points]
 * Perform cluster analysis using several methods (at least k-means and hierarchical clustering)
@@ -177,7 +177,7 @@ plot(x=seq(1,15,1), y=out.withinss ,type="l")
 ```
 
 #### Discussion
-Appears the objective function slope decreases after K=4. 
+Appears the objective function slope decreases after K=4. Our kmeans clustering analysis will examine 4 clusters.
 
 ```{r}
 # from the plot above it appears at k=4 and k=5 there the slope decrease
@@ -257,7 +257,7 @@ Figure:...
 df.members_Y1_h <- df.members_Y1_scaled %>%
   mutate(cluster = df.members_Y1$cluster) %>%
   filter(cluster==3) %>%
-  select(age,male,female,Max_Charlson,Min_Charlson,char_diff)
+  select(male,female,Max_Charlson,Min_Charlson,char_diff)
 
 d <- dist(df.members_Y1_h)
 
@@ -301,12 +301,37 @@ ggplot(data=ASW.plot, aes(x=ks)) +
 Figure #:Comparison of methods for hierarchical clustering of Cluster 3
 
 ```{r}
-summary(as.factor(cutree(hc.average,5)))
+hclust.counts <- summary(as.factor(cutree(hc.average,7)))
+
+hclust.counts <- hclust.counts %>% as_tibble() %>%
+  mutate(Cluster = 1:7) %>%
+  dplyr::rename(N=value)
+
+kable(hclust.counts) %>%
+  kable_styling(full_width=F)
 ```
 
 
 
 ```{r}
-plot(hc.average,main="Average")
+dend.average <- as.dendrogram(hc.average)
+plot(dend.average,main="Average",leaflab="none",ylab='Height')
+abline(h=3.0634)
 ```
+
+Figure #:....
+
+#### Discussion
+
+```{r}
+df.hc.analysis <- df.members_Y1 %>% as_tibble() %>%
+  filter(cluster==3) %>%
+  mutate(cluster.dend = cutree(hc.average,7))
+
+ggplot(df.hc.analysis, aes(colour=as.factor(cluster.dend),y=age)) +
+  geom_boxplot() +
+  labs(y='Age', x='Cluster') +
+  scale_colour_discrete(name='cluster')
+```
+
 
