@@ -102,7 +102,7 @@ df.members_Y1 <- df.members_Y1 %>%
   select(-Sex,-AgeAtFirstClaim)
 ```
 
-```{r}
+```{r, echo=F}
 # create table for viewing variables
 df.created_features <- cbind(lapply(df.members_Y1, max,na.rm=T),lapply(df.members_Y1, mean, na.rm=T),lapply(df.members_Y1, min, na.rm=T),lapply(df.members_Y1,function(x) sum(is.na(x))))
 
@@ -136,7 +136,7 @@ The gender of the member is also inclduded. This variable has been split into tw
 
 ```{r}
 # standardize the data
-df.members_Y1 <- df.members_Y1 %>% 
+df.members_Y1_scaled <- df.members_Y1 %>% 
   mutate_at(vars(-MemberID), funs(scale(.) %>% as.vector))
 ```
 
@@ -147,25 +147,82 @@ Standardized: mean=0, sd=1, euclidean distance
 * Perform cluster analysis using several methods (at least k-means and hierarchical clustering)
 using different feature subsets. [30]
 
-```{r}
+```{r, echo=F, warning=F}
+# so the clusters are the same
+set.seed(33)
+
 # remove Member ID
-df <- df.members_Y1 %>% select(-MemberID)
+df <- df.members_Y1_scaled %>% select(-MemberID)
 
 # fill age
 df <- df %>%
   mutate(age = replace_na(age, replace=0))
 
+# create df for kmeans
+# only include the count variables
+df.kmeans <- df %>% select(N_labclaims,N_drugclaims,N_claims,N_Specialists,N_Providers,N_PCP,N_vendors,N_places)
+
 # cluster
-km.out <- kmeans(df,5,nstart=20)
+out.withinss <- rep(0,15)
 
+for(i in seq(1,15,1)){
+  out.withinss[i] <- kmeans(df.kmeans,i,nstart=20)$tot.withinss
+  }
 
-def.par <- par(no.readonly = TRUE, mar = c(8.1, 4.1, 4.1, 2.1)) # save default, for resetting...
-layout(t(1:5)) # 4 plots in one
-for(i in 1:5) barplot(km.out$centers[i,], main=paste("Cluster", i), las = 2)
+# plot the objective function kmeas attempts to minimize
+plot(x=seq(1,15,1), y=out.withinss ,type="l")
 ```
+
+#### Discussion
+Appears the objective function slope decreases after K=4. 
 
 ```{r}
-km.out$tot.withinss
+# from the plot above it appears at k=4 and k=5 there the slope decrease
+km.out <- kmeans(df.kmeans,4,nstart=20)
+
+def.par <- par(no.readonly = TRUE, mar = c(8.1, 4.1, 4.1, 2.1)) # save default, for resetting...
+layout(t(1:4)) # 4 plots in one
+for(i in 1:4) barplot(km.out$centers[i,], main=paste("Cluster", i),las=2, ylim=c(-2,4.5))
 ```
 
+#### Discussion
+Alot of differences in clusters...
+
+
+```{r}
+cluster.count <- km.out$size %>% as_tibble() %>%
+  mutate(Cluster = c(1,2,3,4)) %>%
+  dplyr::rename(Count=value)
+
+
+
+kable(cluster.count) %>%
+  kable_styling(full_width=F)
+```
+
+#### Discussion 
+Interesting the 3 cluster has substantially less 
+
+```{r, warning=F}
+replacenawith <- mean(df.members_Y1$age, na.rm=T)
+
+df.plot <- df.members_Y1 
+df.plot <- df.plot %>%
+  mutate(cluster = km.out$cluster) %>%
+  tidyr::replace_na(list(age=replacenawith))
+
+df.members_Y1 <- df.members_Y1 %>%
+  mutate(cluster = km.out$cluster) %>%
+  tidyr::replace_na(list(age=replacenawith))
+
+
+ggplot() +
+   stat_density(
+     data=df.plot, aes(x=age,colour=as.factor(cluster)),position="identity",geom="line") +
+   stat_density(data=df.members_Y1, aes(x=age, colour='Population'), geom="line", size=1.5, color='black',lty=3) +
+   scale_colour_discrete(name="Cluster") +
+   labs(title='Comparison of Distributions across Age', x='Age',y='Density')
+```
+
+#### Discussion
 
