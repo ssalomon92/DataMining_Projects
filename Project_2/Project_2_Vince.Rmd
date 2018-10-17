@@ -58,7 +58,7 @@ df.drugs_Y1 <- df.drugs %>%
 df.members_Y1 <- df.members
 
 # free memory by removing unfiltered data
-rm(df.members,df.claims,df.drugs,df.labs)
+rm(df.claims,df.drugs,df.labs)
 
 # create number of claims, providers, specialists, vendors, place service and pcp variables
 df.members_Y1 <- df.claims_Y1 %>%
@@ -221,8 +221,54 @@ ggplot() +
      data=df.plot, aes(x=age,colour=as.factor(cluster)),position="identity",geom="line") +
    stat_density(data=df.members_Y1, aes(x=age, colour='Population'), geom="line", size=1.5, color='black',lty=3) +
    scale_colour_discrete(name="Cluster") +
-   labs(title='Comparison of Distributions across Age', x='Age',y='Density')
+   labs(title='Comparison of Age Distribution', x='Age',y='Density')
 ```
 
+Figure: ..
+
+
 #### Discussion
+```{r}
+df.members <- df.members_Y1 %>%
+  left_join(df.members, by='MemberID')
+
+df.members_pop_clust <- df.members_Y1 %>%
+  mutate(cluster='Population')
+
+levels(df.members$Sex) <- c('Not Specified','Female','Male')
+
+ggplot() +
+      geom_bar(data=df.plot,   aes(x=as.factor(cluster),fill=df.members$Sex),position='dodge',stat="count")+
+       geom_bar(data=df.members_pop_clust,aes(x=cluster,fill=df.members$Sex),position='dodge',stat="count") +
+  scale_fill_discrete(name="Gender") +
+  labs(x='Cluster',y='Count',title='Breakdown of Gender Across Clusters')
+```
+
+Figure:...
+
+#### Discussion
+
+### Heir
+
+```{r}
+df.members_Y1_h <- df.members_Y1_scaled %>%
+  mutate(cluster = df.members_Y1$cluster) %>%
+  filter(cluster==3) %>%
+  select(age,male,female,Max_Charlson,Min_Charlson,char_diff)
+
+hc.complete <- hclust(dist(df.members_Y1_h),method='complete')
+
+hc.average <- hclust(dist(df.members_Y1_h),method='average')
+
+hc.single <- hclust(dist(df.members_Y1_h),method='single')
+```
+
+
+
+```{r}
+par(mfrow=c(1,3))
+plot(hc.complete,main="Complete")
+plot(hc.average,main="Average")
+plot(hc.single,main='Single')
+```
 
