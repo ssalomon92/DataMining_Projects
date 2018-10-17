@@ -26,6 +26,9 @@ library('egg')
 library('gridExtra')
 library('cowplot')
 library('sqldf')
+library('fpc')
+library('akmeans')
+library('stylo')
 ```
 
 
@@ -256,19 +259,54 @@ df.members_Y1_h <- df.members_Y1_scaled %>%
   filter(cluster==3) %>%
   select(age,male,female,Max_Charlson,Min_Charlson,char_diff)
 
-hc.complete <- hclust(dist(df.members_Y1_h),method='complete')
+d <- dist(df.members_Y1_h)
 
-hc.average <- hclust(dist(df.members_Y1_h),method='average')
+hc.complete <- hclust(d,method='complete')
 
-hc.single <- hclust(dist(df.members_Y1_h),method='single')
+hc.average <- hclust(d,method='average')
+
+hc.single <- hclust(d,method='single')
+```
+
+```{r}
+set.seed(33)
+ks <- 2:25
+
+ASW.complete <- sapply(ks, FUN=function(k) {
+  cs <- fpc::cluster.stats(d, cutree(hc.complete, k))['avg.silwidth']
+})
+
+ASW.average <- sapply(ks, FUN=function(k) {
+  cs <- fpc::cluster.stats(d, cutree(hc.average, k))['avg.silwidth']
+})
+
+ASW.single <- sapply(ks, FUN=function(k) {
+  cs <- fpc::cluster.stats(d, cutree(hc.single, k))['avg.silwidth']
+})
+
+
+ASW.plot <- ks %>% as_tibble() %>%
+  mutate(ASW.complete = unlist(ASW.complete),
+         ASW.average = unlist(ASW.average),
+         ASW.single = unlist(ASW.single))
+
+ggplot(data=ASW.plot, aes(x=ks)) +
+  geom_line(aes(y=ASW.complete, colour='Complete')) +
+  geom_line(aes(y=ASW.average, colour='Average')) +
+  geom_line(aes(y=ASW.single, colour='Single')) +
+  labs(x='K',y='ASW') +
+  scale_colour_discrete(name='Method')
+```
+
+Figure #:Comparison of methods for hierarchical clustering of Cluster 3
+
+```{r}
+summary(as.factor(cutree(hc.average,5)))
 ```
 
 
 
 ```{r}
-par(mfrow=c(1,3))
-plot(hc.complete,main="Complete")
 plot(hc.average,main="Average")
-plot(hc.single,main='Single')
 ```
 
