@@ -41,7 +41,7 @@ df.members <- read.csv(file="Members.csv") %>% as_tibble()
 df.drugs <- read.csv(file="DrugCount.csv") %>% as_tibble()
 df.labs <- read.csv(file="LabCount.csv") %>% as_tibble()
 ```
-### 3. Data Preparation [30 points]
+## 3. Data Preparation [30 points]
 * Describe which features you want to use for clustering and why. [20]
 
 ```{r, echo=F}
@@ -122,7 +122,7 @@ kable(df.created_features[2:15,]) %>%
   kable_styling(full_width=F)
 
 ```
-Table 1: Features used for clustering
+<center>Table xxx: Features used for clustering</center>
 
 #### Discussion
 All features for clustering were created at the member level. This was done to help understand how we can cluster patients as opposed to other possible levels such as claim level. 
@@ -144,11 +144,16 @@ df.members_Y1_scaled <- df.members_Y1 %>%
 ```
 
 #### Discussion
-The features used will be scaled to have a mean of 0 and a standard deviation of 1 for both kmeans and hierarchical clustering. Euclidean distance as opposed to cosine distance or a correlation measure will be used for each of the stated clustering methods. Currently, we do not have evidence to suggest one option of distance is better as opposed to others for our features. Additional analysis could be performed to compare how the clusters are formed using cosine distance or correlation measure, but that is not within the scope of our analysis. Clustering algorithms require subjective decisions such as distance measure choice.There is no doubt that differnt choices result in different clustering results, but due to the exploratory nature of clustering the ability to generalize intuitive results is a acceptable reasoning for selecting a distance.
+The features used will be scaled to have a mean of 0 and a standard deviation of 1 for both kmeans, dbscan, and hierarchical clustering. Euclidean distance as opposed to cosine distance or a correlation measure will be used for each of the stated clustering methods. Currently, we do not have evidence to suggest one option of distance is better as opposed to others for our features. Additional analysis could be performed to compare how the clusters are formed using cosine distance or correlation measure, but that is not within the scope of our analysis. Clustering algorithms require subjective decisions such as distance measure choice.There is no doubt that differnt choices result in different clustering results, but due to the exploratory nature of clustering the ability to generalize intuitive results is a acceptable reasoning for selecting a distance. Our analysis does compare performance of single, average, and complete linkage when performing hierarchical clustering.
 
-### 4. Modeling [50 points]
+## 4. Modeling [50 points]
 * Perform cluster analysis using several methods (at least k-means and hierarchical clustering)
 using different feature subsets. [30]
+
+#### Discussion
+Our clustering analysis begins with kmeans. The variables selected for clustering were exclusively the count variables listed above. Our analysis plans to cluster members based on their activity. External validation is performed on the kmeans clusters using variables that were not including when clustering. Next, DBscan is used to cluster the dataset using the same count variables. Kmeans is comapred to DBscan using clustering comparison matrix. Lastly, hierarchical clustering is performed on what our group has concluded was the most interesting cluster found using kmeans.
+
+### Kmeans
 
 ```{r, echo=F, warning=F}
 # so the clusters are the same
@@ -173,8 +178,10 @@ for(i in seq(1,15,1)){
   }
 
 # plot the objective function kmeas attempts to minimize
-plot(x=seq(1,15,1), y=out.withinss ,type="l")
+plot(x=seq(1,15,1), y=out.withinss ,type="l", xlab='K', ylab='Total Within Sum Squares')
 ```
+
+Figure xxx: Total Within Sum of Squares for Kmeans algorithmn applied to count variables
 
 #### Discussion
 Appears the objective function slope decreases after K=4. Our kmeans clustering analysis will examine 4 clusters.
@@ -188,8 +195,6 @@ layout(t(1:4)) # 4 plots in one
 for(i in 1:4) barplot(km.out$centers[i,], main=paste("Cluster", i),las=2, ylim=c(-2,4.5))
 ```
 
-#### Discussion
-Alot of differences in clusters...
 
 
 ```{r}
@@ -202,9 +207,15 @@ cluster.count <- km.out$size %>% as_tibble() %>%
 kable(cluster.count) %>%
   kable_styling(full_width=F)
 ```
+<center> Table xxx: Count of members in each cluster </center>
 
-#### Discussion 
-Interesting the 3 cluster has substantially less 
+#### Discussion
+Examining the 4 clusters we can make judgements on the individuals within each group. Cluster 1 shows the average individual within our dataset related to amount of claims, lab claims, drug claims, specialists seen, etc. The team found it interesting that this group did not include the most members. Cluster 2 contains the most members. These individuals have approximately 1 standard deviation less than the average for each fo the count variables. These patients are individuals that could be assumed to not have chronic diseases. Cluster 2 contains good customers. Only an occasional claim. 
+
+Cluster 3 contains individual's on average have approximately have 1 standard deviation more claims, .3 standard deviation more drug  claims, and .5 standard deviation more lab claims. We conclude that this group has less healthy individuals than cluster 1 and 2. The most interesting part of cluster 3 is the distinct primary care providers. These individuals have more primary care providers than each of the other three clusters. This extreme value only exists for the 3241 members in cluster 3. Later on cluster 3 will be investigated further using hierarchical clustering.
+
+Cluster 4 contains unhealthy members similar to cluster 3, but they do not have many different primary care providers.
+ 
 
 ```{r, warning=F}
 replacenawith <- mean(df.members_Y1$age, na.rm=T)
@@ -227,10 +238,13 @@ ggplot() +
    labs(title='Comparison of Age Distribution', x='Age',y='Density')
 ```
 
-Figure: ..
-
+Figure xxx: Comparison of age density for each cluster as well as the population of the entire dataset shown in black
 
 #### Discussion
+Cluster 1 has a distribution that is slightly older than the true population of the dataset. This is interesting because if you remember we stated that we suspect that these are the average members within the dataset. A statistical test would need to be performed to determine if cluster 1 has an older skewed distribution. Cluster 2 contains on average the younger members within the dataset. This could have been expected from the cluster because we noted in cluster 2 that the individuals were probably the healthiest. Cluster 3 is interesting because the weight of the distribution is disproportionally weighted at ~50 years old. Our team suggested that the members in cluster 4 were probably the most unhealthy therefore it is no suprise the density is concentrated at 75 years old.
+
+Cluster 3 and Cluster 4 both include on average the more unhealthy individuals, but cluster 3 contained members who had relitively more primary care providers. With new information suggesting cluster 3 is younger it is possible that after the age of 50 individuals are less likely to change their primary care provider. 
+
 ```{r}
 df.members <- df.members_Y1 %>%
   left_join(df.members, by='MemberID')
@@ -247,11 +261,12 @@ ggplot() +
   labs(x='Cluster',y='Count',title='Breakdown of Gender Across Clusters')
 ```
 
-Figure:...
+Figure xxx: Age breakdown for each of the kmeans clusters as well as population
 
 #### Discussion
+Once again cluster 3 is the most interesting. Cluster 3 distribution related to gender has a much higher count of missing values for gender. An investigation as to why this has occured could show that we have a severe data quality issue for the individuals that have more than 1 primary care provider.
 
-### Heir
+### Hierarchical
 
 ```{r}
 df.members_Y1_h <- df.members_Y1_scaled %>%
@@ -298,7 +313,7 @@ ggplot(data=ASW.plot, aes(x=ks)) +
   scale_colour_discrete(name='Method')
 ```
 
-Figure #:Comparison of methods for hierarchical clustering of Cluster 3
+Figure xxx:Comparison of methods for hierarchical clustering of Cluster 3
 
 ```{r}
 hclust.counts <- summary(as.factor(cutree(hc.average,7)))
@@ -311,17 +326,26 @@ kable(hclust.counts) %>%
   kable_styling(full_width=F)
 ```
 
+<center> Table xxx: Count for each of the 7 clusters
+
+#### Discussion
+The figure shown above is a comparison of average silouette width for the different methods possible in the hierarchical clustering algorithmn when clustering exclusively the 3 cluster found with the kmeans algorithmn.
+
+The features used for clustering were the gender features as well as the charlson features that were shown in the table earlier.
+
+The plot showed puzzling results. Since no peak was found within 15 clusters the plot was extended to show that splitting the data into smaller and smaller clusters continues to improve the results. Our team was concerned that with clusters greater than 10 some clusters would contain too few observations. This is an issue with hierarchical clustering. Each observation must be assigned a cluster. An outlier analysis could potentially show that a few observations are causing the clustering algorithmn to give these unexpected results. Eventually, our team decided against an outlier analysis and decided to investigate 7 clusters using the average linkage method.
 
 
 ```{r}
 dend.average <- as.dendrogram(hc.average)
 plot(dend.average,main="Average",leaflab="none",ylab='Height')
-abline(h=3.0634)
+abline(h=2.8634)
 ```
 
-Figure #:....
+Figure xxx: Dendrogram of the heirarchical clustering perfomred on cluster 3 for kmeans. The horizontal line represents the height at which the tree was cut to form 7 clusters.
 
 #### Discussion
+The dendrogram shows the first 3 clusters are very different in terms of height from the last 4. 
 
 ```{r}
 df.hc.analysis <- df.members_Y1 %>% as_tibble() %>%
@@ -331,7 +355,10 @@ df.hc.analysis <- df.members_Y1 %>% as_tibble() %>%
 ggplot(df.hc.analysis, aes(colour=as.factor(cluster.dend),y=age)) +
   geom_boxplot() +
   labs(y='Age', x='Cluster') +
-  scale_colour_discrete(name='cluster')
+  scale_colour_discrete(name='cluster') +
+  theme(axis.text.x=element_blank())
 ```
+Figure xxx: 
 
-
+#### Discussion
+Using age to examine heirarchical clustering of cluster 3 from kmeans shows interesting results. The first 3 clusters have a full range of age for the data set while the last 4 clusters have only older members. Also, the first cluster contains mainly 35-55 year old individuals. This is interesting because earlier we found a disproportional representation of this age group within this cluster. A hospital could be interested in what is different between these clusters formed with heirarchical clustering to determine who are the members that make cluster 3 from the kmeans analysis so interesting. 
