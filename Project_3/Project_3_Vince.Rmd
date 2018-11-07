@@ -6,25 +6,85 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
+library('tidyr')
+library('dplyr')
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+# Set working directory for 
+setwd('C:\\Users\\MillerV\\Documents\\Masters Statistics\\CSE7331\\Projects\\hospital3')
+## read in all the data and convert to tibble, this is the tidyverse dataframe
+df.claims <- read.csv(file="Claims.csv") %>% as_tibble()
+df.members <- read.csv(file="Members.csv") %>% as_tibble()
+df.drugs <- read.csv(file="DrugCount.csv") %>% as_tibble()
+df.labs <- read.csv(file="LabCount.csv") %>% as_tibble()
+df.DaysInHospital_Y2 <- read.csv(file="DaysInHospital_Y2.csv") %>% as_tibble()
+df.DaysInHospital_Y3 <- read.csv(file="DaysInHospital_Y3.csv") %>% as_tibble()
 ```
 
-## Including Plots
+```{r}
+# We will use Y1 data to predict the class of stay that the member had in Y2
+# filter for year 1
+df.claims_Y1 <- df.claims %>%
+  filter(Year=='Y1') %>%
+  select(-Year)
 
-You can also embed plots, for example:
+df.labs_Y1 <- df.labs %>%
+  filter(Year=='Y1') %>%
+  select(-Year)
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+df.drugs_Y1 <- df.drugs %>%
+  filter(Year=='Y1') %>%
+  select(-Year)
+  
+df.members_Y1 <- df.members
+
+# free memory by removing unfiltered data
+rm(df.claims,df.drugs,df.labs, df.members)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+# create number of claims, providers, specialists, vendors, place service and pcp variables
+df.members_Y1 <- df.claims_Y1 %>%
+  group_by(MemberID) %>%
+  summarize(N_claims = n(),
+            N_Specialists=n_distinct(Specialty), 
+            N_Providers=n_distinct(ProviderID),
+            N_vendors=n_distinct(Vendor),
+            N_PCP=n_distinct(PCP),
+            N_places=n_distinct(PlaceSvc)) %>%
+  left_join(df.members_Y1, by='MemberID')
+
+# create number of drug claims variables assume 0 drug claims for member ID not in year 1 of drug dataset.
+df.members_Y1 <- df.drugs_Y1 %>%
+  group_by(MemberID) %>%
+  summarize(N_drugclaims = n()) %>%
+  right_join(df.members_Y1, by='MemberID') %>%
+  mutate(N_drugclaims = replace_na(N_drugclaims,replace=0))
+
+# create number of lab claims variables assume 0 drug claims for member ID not in year 1 of lab dataset.
+df.members_Y1 <- df.labs_Y1 %>%
+  group_by(MemberID) %>%
+  summarize(N_labclaims = n()) %>%
+  right_join(df.members_Y1, by='MemberID') %>%
+  mutate(N_labclaims = replace_na(N_labclaims,replace=0))
+
+# recode charleston index and create difference variable
+df.members_Y1 <- df.claims_Y1 %>%
+  mutate(CharlsonIndex = recode(CharlsonIndex, `0`=0, `1-2`=1.5, `3-4`=3.5, `5+`=5)) %>%
+  group_by(MemberID) %>%
+  summarize(Max_Charlson = max(CharlsonIndex),
+            Min_Charlson = min(CharlsonIndex)) %>%
+  mutate(char_diff = Max_Charlson - Min_Charlson) %>%
+  right_join(df.members_Y1, by='MemberID')
+
+# translate age variable and change sex to numeric
+df.members_Y1 <- df.members_Y1 %>%
+  mutate(age = recode(AgeAtFirstClaim, `""`=NULL, `0-9`=4.5, `10-19`=14.5, `20-29`=24.5, `30-39`=34.5, `40-49`=44.5, `50-59`=54.5, `60-69`= 64.5, `70-79`=74.5, `80+`=84.5),
+         male = ifelse(Sex=='M',1,0),
+         female= ifelse(Sex=='F',1,0)) %>%
+  select(-Sex,-AgeAtFirstClaim)
+```
+
+This is all the same from the last lab. I will make more.
