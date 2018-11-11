@@ -9,7 +9,17 @@ output: html_document
 knitr::opts_chunk$set(echo = FALSE)
 library('tidyr')
 library('dplyr')
+library('knitr')
+library('kableExtra')
+library('gridExtra')
+library('randomForest')
 ```
+
+## 3. Data Preparation
+
+#### Discussion
+All features for classification were created at the member level. This was done to for creating a classifier that uses information from year 1 to predict the length of stay for a member in year 2.
+
 
 ```{r}
 # Set working directory for 
@@ -87,4 +97,266 @@ df.members_Y1 <- df.members_Y1 %>%
   select(-Sex,-AgeAtFirstClaim)
 ```
 
-This is all the same from the last lab. I will make more.
+```{r, echo=F}
+# create table for viewing variables
+df.created_features <- cbind(lapply(df.members_Y1, max,na.rm=T),lapply(df.members_Y1, mean, na.rm=T),lapply(df.members_Y1, min, na.rm=T),lapply(df.members_Y1,function(x) sum(is.na(x))))
+
+# change col names and round
+colnames(df.created_features) <- c('MAX','MEAN','MIN', 'NA Count')
+df.created_features[2:15,] <- format(df.created_features[2:15,], digits=3)
+
+# create table
+kable(df.created_features[2:15,]) %>%
+  group_rows('Charlson Features',1,3) %>% 
+  group_rows('Counts',4,11) %>%
+  group_rows('Age',12,12) %>% 
+  group_rows('Gender *',13,14) %>%
+  kable_styling(full_width=F)
+
+```
+<center>Table xxx: Variables created for clustering in Project 2. </center>
+<center>Note: Proportion is shown if variable is categorical.* </center>
+
+#### Discussion
+The first 3 variables shown are the min, max, and difference for the charlson index for each of the patients claims. These variables can be used at an attempt to use severity of a members claim or the change of severity from claim to claim for a member.
+
+Count variables were also created at the member level. The total number of claims by a member. The number of lab claims and drug claims each member made. The number of different specialist a member has seen. The number of unique providers, vendors, and pcp that each member has used for a claim as well as the number of different places. These count variables can be used to determine if patterns of activity can cluster our members.
+
+The age of the members has been included. This variable has missing values. During clustering our team chose to impute the values of age with the mean age for the entire members dataset. This technique did not seem very effective. For classification we will drop the members who have age missing. We will not lose many observations relatively. In practice different imputation techniques could be attempted and compared via an accuracy score. This is outside of the scope for our project. 
+
+The gender of the member is also inclduded. This variable has been split into two columns; an indicator for male and an indicator for female. There were missing values therefore it is possible to have a 0 for each of these columns.
+
+The variables shown below capture much of the members activity in year 1. Two additional groups of variables have also been created to help the classification problem.
+
+```{r}
+# create difference of max and min days since first claim.
+df.members_Y1 <- df.claims_Y1 %>%
+  mutate(DaysSinceFS = recode(DSFS, `0- 1 month`=.5,   `1- 2 months`=1.5,  `10-11 months`=10.5, `11-12 months`=11.5, `2- 3 months`=2.5,  `3- 4 months`=3.5,  `4- 5 months`=4.5,  `5- 6 months`=5.5, `6- 7 months`=6.5,  `7- 8 months`=7.5,  `8- 9 months`=8.5,  `9-10 months`=9.5)) %>%
+  group_by(MemberID) %>%
+  summarize(Max_DaysSince = max(DaysSinceFS),
+            Min_DaysSince = min(DaysSinceFS)) %>%
+  mutate(Last_First_Claim = Max_DaysSince - Min_DaysSince) %>%
+  select(Last_First_Claim, MemberID) %>%
+  right_join(df.members_Y1, by='MemberID') %>%
+  mutate(Last_First_Claim = replace_na(Last_First_Claim,replace=0))
+```
+
+```{r}
+# create difference of max and min days since first claim for drugs.
+df.members_Y1 <- df.drugs_Y1 %>%
+  mutate(DaysSinceFS = recode(DSFS, `0- 1 month`=.5,   `1- 2 months`=1.5,  `10-11 months`=10.5, `11-12 months`=11.5, `2- 3 months`=2.5,  `3- 4 months`=3.5,  `4- 5 months`=4.5,  `5- 6 months`=5.5, `6- 7 months`=6.5,  `7- 8 months`=7.5,  `8- 9 months`=8.5,  `9-10 months`=9.5)) %>%
+  group_by(MemberID) %>%
+  summarize(Max_DaysSince = max(DaysSinceFS),
+            Min_DaysSince = min(DaysSinceFS)) %>%
+  mutate(Last_First_Drug_Claim = Max_DaysSince - Min_DaysSince) %>%
+  select(Last_First_Drug_Claim, MemberID) %>%
+  right_join(df.members_Y1, by='MemberID') %>%
+  mutate(Last_First_Drug_Claim = replace_na(Last_First_Drug_Claim,replace=0))
+
+```
+
+```{r}
+# create slope variables; change of drug clamins from last claim and second to last claim and average change for all claims
+df.members_Y1 <- df.drugs_Y1 %>% mutate(DaysSinceFS = recode(DSFS, `0- 1 month`=.5,   `1- 2 months`=1.5,  `10-11 months`=10.5, `11-12 months`=11.5, `2- 3 months`=2.5,  `3- 4 months`=3.5,  `4- 5 months`=4.5,  `5- 6 months`=5.5, `6- 7 months`=6.5,  `7- 8 months`=7.5,  `8- 9 months`=8.5,  `9-10 months`=9.5)) %>% 
+  group_by(MemberID) %>%
+  arrange(DaysSinceFS, .by_group=T) %>%
+  mutate(DrugCount = as.numeric(DrugCount)) %>%
+  mutate(diff = DrugCount - lag(DrugCount, default = first(DrugCount))) %>%
+  group_by(MemberID) %>%
+  summarize(Last_slope_drugs = last(diff),
+         Mean_slope_drugs = mean(diff)
+         ) %>%
+  right_join(df.members_Y1, by='MemberID') %>%
+  mutate(Last_slope_drugs = replace_na(Last_slope_drugs,replace=0),
+         Mean_slope_drugs = replace_na(Mean_slope_drugs,replace=0))
+```
+
+```{r}
+# create difference of max and min days since first claim for labs.
+df.members_Y1 <- df.labs_Y1 %>%
+  mutate(DaysSinceFS = recode(DSFS, `0- 1 month`=.5,   `1- 2 months`=1.5,  `10-11 months`=10.5, `11-12 months`=11.5, `2- 3 months`=2.5,  `3- 4 months`=3.5,  `4- 5 months`=4.5,  `5- 6 months`=5.5, `6- 7 months`=6.5,  `7- 8 months`=7.5,  `8- 9 months`=8.5,  `9-10 months`=9.5)) %>%
+  group_by(MemberID) %>%
+  summarize(Max_DaysSince = max(DaysSinceFS),
+            Min_DaysSince = min(DaysSinceFS)) %>%
+  mutate(Last_First_lab_Claim = Max_DaysSince - Min_DaysSince) %>%
+  select(Last_First_lab_Claim, MemberID) %>%
+  right_join(df.members_Y1, by='MemberID') %>%
+  mutate(Last_First_lab_Claim = replace_na(Last_First_lab_Claim,replace=0))
+```
+
+```{r}
+# create slope variables; change of drug clamins from last claim and second to last claim and average change for all claims
+df.members_Y1 <- df.labs_Y1 %>% mutate(DaysSinceFS = recode(DSFS, `0- 1 month`=.5,   `1- 2 months`=1.5,  `10-11 months`=10.5, `11-12 months`=11.5, `2- 3 months`=2.5,  `3- 4 months`=3.5,  `4- 5 months`=4.5,  `5- 6 months`=5.5, `6- 7 months`=6.5,  `7- 8 months`=7.5,  `8- 9 months`=8.5,  `9-10 months`=9.5)) %>% 
+  group_by(MemberID) %>%
+  arrange(DaysSinceFS, .by_group=T) %>%
+  mutate(LabCount = as.numeric(LabCount)) %>%
+  mutate(diff = LabCount - lag(LabCount, default = first(LabCount))) %>%
+  group_by(MemberID) %>%
+  summarize(Last_slope_labs = last(diff),
+         Mean_slope_labs = mean(diff)
+         ) %>%
+  right_join(df.members_Y1, by='MemberID') %>%
+  mutate(Last_slope_labs = replace_na(Last_slope_labs,replace=0),
+         Mean_slope_labs = replace_na(Mean_slope_labs,replace=0))
+```
+
+```{r}
+df.slope <- df.members_Y1 %>%
+  select(Last_First_Claim, Last_First_Drug_Claim, Last_slope_drugs, Mean_slope_drugs, Last_First_lab_Claim, Last_slope_labs, Mean_slope_labs)
+# create table for viewing variables
+df.created_features <- cbind(lapply(df.slope, max,na.rm=T),lapply(df.slope, mean, na.rm=T),lapply(df.slope, min, na.rm=T),lapply(df.slope,function(x) sum(is.na(x))))
+
+# change col names and round
+colnames(df.created_features) <- c('MAX','MEAN','MIN', 'NA Count')
+df.created_features[1:7,] <- format(df.created_features[1:7,], digits=3)
+
+# create table
+kable(df.created_features[1:7,]) %>%
+  group_rows('Claims Dataset',1,1) %>%
+  group_rows('Drug Claims Dataset',2,4) %>%
+  group_rows('Lab Claims Dataset',5,7) %>%
+  kable_styling(full_width=F)
+```
+<center>Table xxx: Longest time between claims and slope variables created from the three different claims datasets.</center>
+
+#### Discussion
+All the variables above were created to capture the rate of change of claims. 
+
+The variables with Last_First_ leading are the largest days since first claim for each dataset e.g. if a member had a claim in January and December their Last_First_ would be 11 for the corresponding claims datasets. The hypothesis is that members that have claims all throughout the year are different than those who have claims in a concentrated time period.
+
+The Last_slope variables is the difference in Drug or Lab count for the last and second to last claim of each member. This information helps understand if the Drug or Lab count increased or decreased for the last claim.
+
+The mean slope variables are the average slope for the Drug and Lab count variables i.e. were the drug or lab counts increasing or decreasing on average for each member.
+
+If a member had 1 or less than 1 claims in any of the data sets the values for these variables will be 0. 
+
+```{r}
+# change level of empty string
+levels(df.claims_Y1$Specialty)[1] <- 'Unknown'
+# translate age variable and change sex to numeric
+df.members_Y1 <- df.claims_Y1 %>%
+  mutate( Unknown = ifelse(Specialty=='Unknown',1,0),
+          Anesthesiology = ifelse(Specialty=='Anesthesiology',1,0),
+          Diag_imag = ifelse(Specialty=='Diagnostic Imaging',1,0),
+          Emergency = ifelse(Specialty=='Emergency',1,0),
+          General_Practice = ifelse(Specialty=='General Practice',1,0),
+          Internal = ifelse(Specialty=='Internal',1,0),
+          Laboratory = ifelse(Specialty=='Laboratory',1,0),
+          OAG = ifelse(Specialty=='Obstetrics and Gynecology',1,0),
+          Other = ifelse(Specialty=='Other',1,0),
+          Pathology = ifelse(Specialty=='Pathology',1,0),
+          Pediatrics = ifelse(Specialty=='Pediatrics',1,0),
+          Rehab = ifelse(Specialty=='Rehabilitation',1,0),
+          Surg = ifelse(Specialty=='Surgery',1,0)) %>%
+  group_by(MemberID) %>%
+  summarize(Unknown = sum(Unknown),
+            Anesthesiology = sum(Anesthesiology),
+            Diag_imag = sum(Diag_imag),
+            Emergency = sum(Emergency),
+            General_P = sum(General_Practice),
+            Internal = sum(Internal),
+            Laboratory = sum(Laboratory),
+            OAG = sum(OAG),
+            Pathology = sum(Pathology),
+            Pediatrics = sum(Pediatrics),
+            Rehab = sum(Rehab),
+            Surg = sum(Surg),
+            Other = sum(Other)) %>%
+  right_join(df.members_Y1, by='MemberID')
+```
+
+```{r}
+df.Specialty <- df.members_Y1 %>%
+  select(Unknown, Anesthesiology,Diag_imag,Emergency,General_P,Internal, Laboratory,OAG, Pathology,Pediatrics,Rehab,Surg,Other)
+# create table for viewing variables
+df.created_features <- cbind(lapply(df.Specialty, max,na.rm=T),lapply(df.Specialty, mean, na.rm=T),lapply(df.Specialty, min, na.rm=T),lapply(df.Specialty,function(x) sum(is.na(x))))
+
+# change col names and round
+colnames(df.created_features) <- c('MAX','MEAN','MIN', 'NA Count')
+df.created_features[1:13,] <- format(df.created_features[1:13,], digits=3)
+
+# create table
+kable(df.created_features[1:13,]) %>%
+  group_rows('Specialty Counts',1,13) %>%
+  kable_styling(full_width=F)
+```
+<center>Table xxx: Counts of each specialist seen by a member</center>
+
+#### Discussion
+The variables above are the counts of specialist each member has seen. This variable could be made for many of the variables in the claims dataset, but because each unique value in a column for the claims dataset requires its own column in the dataset that will be used for modeling creating many variables like this would make model fitting very computationally expensive. In practice if great performance was seen by using these counts it would make it worth investigating breaking down more columns in the claims dataset.
+
+```{r}
+# recat supervisor variable
+df.DaysInHospital_Y2 <- df.DaysInHospital_Y2 %>% mutate(DaysInHospital_cat=cut(DaysInHospital, breaks=c(-Inf, 0, 3, Inf), labels=c("No_Stay","Short_Stay","Long_Stay")))
+
+# create table
+kable(summary(df.DaysInHospital_Y2$DaysInHospital_cat), col.names='Count') %>%
+  kable_styling(full_width=F)
+```
+<center>Table xxx: Breakdown of Supervisor variabler using 0: 'No_Stay', 1-3: 'Short_Stay', and >3: 'Long_Stay'</center>
+
+#### Discussion
+The table above shows the breakdown of the supervisor. Most members did not visit the hospital in the second year. 
+
+The reason for selecting the given breakdown was to slightly balance the distribution of the supervisor variable. Currently, we have no reason to select a different breakdown. With more information we could select a breakdown that makes the most sense according to the needs of a hospital e.g. if someone who stays >5 days uses exponetially more resources than someone who stays for < 5 days we sould use 5 as the cut.
+
+If it were the case that the hospital needs reflected a cut that caused the distribution of the supervisor to be grossly inbalanced down sampling could be used to create a more uniform distribution.
+
+```{r}
+# ****modeling dataset****
+df <- df.DaysInHospital_Y2 %>%
+  select(MemberID,DaysInHospital_cat) %>%
+  right_join(df.members_Y1, by='MemberID') %>%
+  drop_na() %>%
+  select(-MemberID)
+  
+```
+
+## 4. Modeling
+### Model 1: Random Forest
+
+```{r}
+#### function for miss classification calc from previous data science course
+misClass = function(pred.class,true.class,produceOutput=FALSE){
+  confusion.mat = table(pred.class,true.class)
+  if(produceOutput){
+    return(1-sum(diag(confusion.mat))/sum(confusion.mat))	
+  }
+  else{
+    print('misclass')
+    print(1-sum(diag(confusion.mat))/sum(confusion.mat))
+    print('confusion mat')
+    print(confusion.mat)
+  }
+}
+####
+```
+
+```{r}
+# train test split (.8,.2)
+set.seed(1)
+train <- sample(c(T,F), replac=T, size=nrow(df), prob=c(.8,.2))
+test  <- !train
+
+# create random forest
+rf.hospital = randomForest(DaysInHospital_cat~.,data=df,subset=train, mtry=10,importance=TRUE)
+
+# predict
+y.hat <- predict(rf.hospital,newdata=df[test,])
+
+# conf matrix
+misClass(y.hat,df$DaysInHospital_cat[test])
+```
+
+```{r}
+varImpPlot(rf.hospital,n.var=10)
+```
+```{r}
+plot(1:500,rf.hospital$err.rate[,1],ylab="OOB Error", xlab='Estimators')
+```
+
+#### Discussion
+So far random forest has been bad
+
+
+### Model 2: Boosting/SVM/Neural Net/Logistic Regression
